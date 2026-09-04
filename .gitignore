@@ -1,3 +1,21 @@
+# --- project-specific additions ---
+
+# data (raw/processed data never belongs in Git; especially non-commercial-licensed Olist data)
+data/raw/
+data/processed/
+*.csv
+
+# environment / secrets
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# vector store / local artifacts (once we get to RAG)
+*.faiss
+*.index
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
