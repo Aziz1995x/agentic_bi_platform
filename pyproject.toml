@@ -5,6 +5,7 @@ description = "Agentic AI Data Analyst / BI platform using LangChain and LangGra
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "asyncpg>=0.31.0",
     "pydantic-settings>=2.15.0",
 ]
 
