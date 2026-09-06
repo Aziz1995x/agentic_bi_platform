@@ -1,0 +1,150 @@
+digraph G {
+        graph [
+            nodesep=0.5;
+            rankdir="LR";
+            cencentrate=true;
+            splines="spline";
+            fontname="Helvetica";
+            pad="0.2,0.2",
+            label="",
+
+        ];
+
+        node [shape=plain, fontname="Helvetica"];
+        edge [
+            dir=both,
+            fontsize=12,
+            arrowsize=0.9,
+            penwidth=1.0,
+            labelangle=32,
+            labeldistance=1.8,
+            fontname="Helvetica"
+        ];
+
+	 Customers [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>Customers</b></td></tr>
+        
+		<tr><td port="customer_id" align="left" cellpadding="5">customer_id <font color="grey60">str</font></td></tr>
+		<tr><td port="customer_unique_id" align="left" cellpadding="5">customer_unique_id <font color="grey60">str</font></td></tr>
+		<tr><td port="customer_zip_code_prefix" align="left" cellpadding="5">customer_zip_code_prefix <font color="grey60">int64</font></td></tr>
+		<tr><td port="customer_city" align="left" cellpadding="5">customer_city <font color="grey60">str</font></td></tr>
+		<tr><td port="customer_state" align="left" cellpadding="5">customer_state <font color="grey60">str</font></td></tr>
+		</table>>];
+
+	 Orders [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>Orders</b></td></tr>
+        
+		<tr><td port="order_id" align="left" cellpadding="5">order_id <font color="grey60">str</font></td></tr>
+		<tr><td port="customer_id" align="left" cellpadding="5">customer_id <font color="grey60">str</font></td></tr>
+		<tr><td port="order_status" align="left" cellpadding="5">order_status <font color="grey60">str</font></td></tr>
+		<tr><td port="order_purchase_timestamp" align="left" cellpadding="5">order_purchase_timestamp <font color="grey60">str</font></td></tr>
+		<tr><td port="order_approved_at" align="left" cellpadding="5">order_approved_at <font color="grey60">str</font></td></tr>
+		<tr><td port="order_delivered_carrier_date" align="left" cellpadding="5">order_delivered_carrier_date <font color="grey60">str</font></td></tr>
+		<tr><td port="order_delivered_customer_date" align="left" cellpadding="5">order_delivered_customer_date <font color="grey60">str</font></td></tr>
+		<tr><td port="order_estimated_delivery_date" align="left" cellpadding="5">order_estimated_delivery_date <font color="grey60">str</font></td></tr>
+		</table>>];
+
+	 OrderItems [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>OrderItems</b></td></tr>
+        
+		<tr><td port="order_id" align="left" cellpadding="5">order_id <font color="grey60">str</font></td></tr>
+		<tr><td port="order_item_id" align="left" cellpadding="5">order_item_id <font color="grey60">int64</font></td></tr>
+		<tr><td port="product_id" align="left" cellpadding="5">product_id <font color="grey60">str</font></td></tr>
+		<tr><td port="seller_id" align="left" cellpadding="5">seller_id <font color="grey60">str</font></td></tr>
+		<tr><td port="shipping_limit_date" align="left" cellpadding="5">shipping_limit_date <font color="grey60">str</font></td></tr>
+		<tr><td port="price" align="left" cellpadding="5">price <font color="grey60">float64</font></td></tr>
+		<tr><td port="freight_value" align="left" cellpadding="5">freight_value <font color="grey60">float64</font></td></tr>
+		</table>>];
+
+	 Products [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>Products</b></td></tr>
+        
+		<tr><td port="product_id" align="left" cellpadding="5">product_id <font color="grey60">str</font></td></tr>
+		<tr><td port="product_category_name" align="left" cellpadding="5">product_category_name <font color="grey60">str</font></td></tr>
+		<tr><td port="product_name_length" align="left" cellpadding="5">product_name_length <font color="grey60">float64</font></td></tr>
+		<tr><td port="product_description_length" align="left" cellpadding="5">product_description_length <font color="grey60">float64</font></td></tr>
+		<tr><td port="product_photos_qty" align="left" cellpadding="5">product_photos_qty <font color="grey60">float64</font></td></tr>
+		<tr><td port="product_weight_g" align="left" cellpadding="5">product_weight_g <font color="grey60">float64</font></td></tr>
+		<tr><td port="product_length_cm" align="left" cellpadding="5">product_length_cm <font color="grey60">float64</font></td></tr>
+		<tr><td port="product_height_cm" align="left" cellpadding="5">product_height_cm <font color="grey60">float64</font></td></tr>
+		<tr><td port="product_width_cm" align="left" cellpadding="5">product_width_cm <font color="grey60">float64</font></td></tr>
+		</table>>];
+
+	 Sellers [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>Sellers</b></td></tr>
+        
+		<tr><td port="seller_id" align="left" cellpadding="5">seller_id <font color="grey60">str</font></td></tr>
+		<tr><td port="seller_zip_code_prefix" align="left" cellpadding="5">seller_zip_code_prefix <font color="grey60">int64</font></td></tr>
+		<tr><td port="seller_city" align="left" cellpadding="5">seller_city <font color="grey60">str</font></td></tr>
+		<tr><td port="seller_state" align="left" cellpadding="5">seller_state <font color="grey60">str</font></td></tr>
+		</table>>];
+
+	 Payments [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>Payments</b></td></tr>
+        
+		<tr><td port="order_id" align="left" cellpadding="5">order_id <font color="grey60">str</font></td></tr>
+		<tr><td port="payment_sequential" align="left" cellpadding="5">payment_sequential <font color="grey60">int64</font></td></tr>
+		<tr><td port="payment_type" align="left" cellpadding="5">payment_type <font color="grey60">str</font></td></tr>
+		<tr><td port="payment_installments" align="left" cellpadding="5">payment_installments <font color="grey60">int64</font></td></tr>
+		<tr><td port="payment_value" align="left" cellpadding="5">payment_value <font color="grey60">float64</font></td></tr>
+		</table>>];
+
+	 Reviews [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>Reviews</b></td></tr>
+        
+		<tr><td port="review_id" align="left" cellpadding="5">review_id <font color="grey60">str</font></td></tr>
+		<tr><td port="order_id" align="left" cellpadding="5">order_id <font color="grey60">str</font></td></tr>
+		<tr><td port="review_score" align="left" cellpadding="5">review_score <font color="grey60">int64</font></td></tr>
+		<tr><td port="review_comment_title" align="left" cellpadding="5">review_comment_title <font color="grey60">str</font></td></tr>
+		<tr><td port="review_comment_message" align="left" cellpadding="5">review_comment_message <font color="grey60">str</font></td></tr>
+		<tr><td port="review_creation_date" align="left" cellpadding="5">review_creation_date <font color="grey60">str</font></td></tr>
+		<tr><td port="review_answer_timestamp" align="left" cellpadding="5">review_answer_timestamp <font color="grey60">str</font></td></tr>
+		</table>>];
+
+	 Geolocation [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>Geolocation</b></td></tr>
+        
+		<tr><td port="geolocation_zip_code_prefix" align="left" cellpadding="5">geolocation_zip_code_prefix <font color="grey60">int64</font></td></tr>
+		<tr><td port="geolocation_lat" align="left" cellpadding="5">geolocation_lat <font color="grey60">float64</font></td></tr>
+		<tr><td port="geolocation_lng" align="left" cellpadding="5">geolocation_lng <font color="grey60">float64</font></td></tr>
+		<tr><td port="geolocation_city" align="left" cellpadding="5">geolocation_city <font color="grey60">str</font></td></tr>
+		<tr><td port="geolocation_state" align="left" cellpadding="5">geolocation_state <font color="grey60">str</font></td></tr>
+		</table>>];
+
+	 CategoryTranslation [ label=<
+        <table border="0" cellborder="1" cellspacing="0">
+        <tr><td bgcolor="grey"><b>CategoryTranslation</b></td></tr>
+        
+		<tr><td port="product_category_name" align="left" cellpadding="5">product_category_name <font color="grey60">str</font></td></tr>
+		<tr><td port="product_category_name_english" align="left" cellpadding="5">product_category_name_english <font color="grey60">str</font></td></tr>
+		</table>>];
+
+	 Customers:customer_id->Orders:customer_id [ 
+                        arrowhead=ocrow, arrowtail=none];
+
+	 Orders:order_id->OrderItems:order_id [ 
+                        arrowhead=ocrow, arrowtail=none];
+
+	 Products:product_id->OrderItems:product_id [ 
+                        arrowhead=ocrow, arrowtail=none];
+
+	 Sellers:seller_id->OrderItems:seller_id [ 
+                        arrowhead=ocrow, arrowtail=none];
+
+	 Orders:order_id->Payments:order_id [ 
+                        arrowhead=ocrow, arrowtail=none];
+
+	 Orders:order_id->Reviews:order_id [ 
+                        arrowhead=ocrow, arrowtail=none];
+
+	 Products:product_category_name->CategoryTranslation:product_category_name [ 
+                        arrowhead=none, arrowtail=ocrow];
+	}
