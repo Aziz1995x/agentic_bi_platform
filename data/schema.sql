@@ -97,14 +97,20 @@ CREATE TABLE order_payments (
     FOREIGN KEY (order_id) REFERENCES orders(order_id)
 );
 
+-- NOTE: review_id is NOT unique on its own in the real Olist data — Olist
+-- legitimately reuses the same review_id across multiple different orders
+-- (789 confirmed cases, zero exact duplicate rows). PK changed to composite
+-- (review_id, order_id), matching the same pattern already used for
+-- order_items and order_payments.
 CREATE TABLE order_reviews (
-    review_id TEXT PRIMARY KEY,
+    review_id TEXT,
     order_id TEXT,
     review_score SMALLINT,
     review_comment_title TEXT,
     review_comment_message TEXT,
     review_creation_date TIMESTAMP,
     review_answer_timestamp TIMESTAMP,
+    PRIMARY KEY (review_id, order_id),
     FOREIGN KEY (order_id) REFERENCES orders(order_id)
 );
 
