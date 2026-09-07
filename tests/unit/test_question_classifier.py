@@ -6,7 +6,7 @@ unmocked, flaky, real call looks like first). Mark them so they can be
 skipped in fast local test runs later.
 """
 
-from agentic_bi.classification.question_classifier import classify_question_bundle
+from agentic_bi.classification.question_classifier import classify_question_bundle, classify_questions_batch
 import pytest
 
 from agentic_bi.classification.question_classifier import classify_question
@@ -48,3 +48,15 @@ def test_classification_bundle_runs_concurrently():
     )
     assert result.classification.route == InvestigationRoute.FULL_INVESTIGATION
     assert result.restated_question  # non-empty, LLM-generated restatement
+
+def test_batch_classification_preserves_order_and_question():
+    questions = [
+        "What is the definition of an active customer according to our business rules?",
+        "Which region has the highest return rate?",
+        "Why did revenue decrease last quarter?",
+    ]
+    results = classify_questions_batch(questions)
+
+    assert len(results) == len(questions)
+    for original, result in zip(questions, results):
+        assert result.original_question == original

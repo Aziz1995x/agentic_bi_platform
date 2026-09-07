@@ -49,3 +49,10 @@ class ClassificationBundle(BaseModel):
     """Combined output of the parallel classification step."""
     classification: QuestionClassification
     restated_question: str
+
+class RoutedQuestion(BaseModel):
+    """What a downstream node (e.g. a future LangGraph Planner) actually needs:
+    the original question preserved alongside the routing decision, not just
+    the decision in isolation."""
+    original_question: str
+    classification: QuestionClassification

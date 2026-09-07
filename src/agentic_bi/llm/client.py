@@ -28,10 +28,11 @@ def get_llm(temperature: float | None = None) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(
-            model=settings.llm_model,
+            model_name=settings.llm_model,
             temperature=temp,
             api_key=settings.anthropic_api_key,
         )
+    
     elif settings.llm_provider == "openai":
         from langchain_openai import ChatOpenAI
 

@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     environment: Literal["dev", "staging", "prod"]
     log_level: str = "INFO"
 
-    llm_provider: Literal["anthropic", "openai", "groq", "local"] = "groq"
-    llm_model: str = "qwen/qwen3.6-27b"
+    llm_provider: Literal["anthropic", "openai", "groq", "local"] = "openai"
+    llm_model: str = "gpt-4o-mini"    # "qwen/qwen3.6-27b"
     llm_temperature: float = 0.0
 
     anthropic_api_key: SecretStr | None = None

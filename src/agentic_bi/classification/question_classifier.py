@@ -14,10 +14,11 @@ building block a "Runnable": anything with .invoke()/.batch()/.stream()
 can sit on either side of that pipe.
 """
 
-from langchain_core.runnables import RunnableLambda, RunnableParallel
+from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
+
 from langchain_core.prompts import ChatPromptTemplate
 
-from agentic_bi.classification.schemas import QuestionClassification, ClassificationBundle
+from agentic_bi.classification.schemas import QuestionClassification, ClassificationBundle, RoutedQuestion
 from agentic_bi.llm.client import get_llm
 
 _SYSTEM_PROMPT = """You are the routing component of a BI analyst agent.
@@ -88,3 +89,46 @@ def build_bundle_chain():
 def classify_question_bundle(question: str) -> ClassificationBundle:
     chain = build_bundle_chain()
     return chain.invoke({"question": question})
+
+
+def build_routed_chain():
+    """Attaches the original input question to the classification output.
+
+    RunnablePassthrough() means "take the input to this step and pass it
+    through unchanged." Combined with RunnableParallel, one branch runs
+    the real chain (_prompt | structured_llm) and the other branch just
+    echoes the input dict back -- no LLM call, no transformation. This is
+    the standard LCEL pattern for "I need the model's output AND the
+    original input available together downstream," which is exactly what
+    a LangGraph state update needs: you rarely want to throw away the
+    question just because you've now classified it.
+    """
+    llm = get_llm()
+    structured_llm = llm.with_structured_output(QuestionClassification)
+
+    parallel = RunnableParallel(
+        classification=_prompt | structured_llm,
+        original_question=RunnablePassthrough() | RunnableLambda(lambda d: d["question"]),
+    )
+
+    def _to_routed(result: dict) -> RoutedQuestion:
+        return RoutedQuestion(
+            original_question=result["original_question"],
+            classification=result["classification"],
+        )
+
+    return parallel | RunnableLambda(_to_routed)
+
+
+def classify_questions_batch(questions: list[str]) -> list[RoutedQuestion]:
+    """Runs multiple questions through the routed chain concurrently.
+
+    .batch() is not a for-loop with .invoke() called N times -- it
+    dispatches all N inputs concurrently (thread pool under the hood for
+    sync chains) and returns results in the same order as the inputs.
+    This is the mechanism you'll use in Phase 20 to run an entire
+    evaluation dataset (30-50 questions) without writing your own
+    concurrency code.
+    """
+    chain = build_routed_chain()
+    return chain.batch([{"question": q} for q in questions])
