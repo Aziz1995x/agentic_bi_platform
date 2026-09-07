@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Literal
 from functools import lru_cache
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import SecretStr
 
 
 class Settings(BaseSettings):
@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     environment: Literal["dev", "staging", "prod"]
     log_level: str = "INFO"
 
+    llm_provider: Literal["anthropic", "openai", "groq", "local"] = "groq"
+    llm_model: str = "qwen/qwen3.6-27b"
+    llm_temperature: float = 0.0
+
+    anthropic_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None
+
+    ollama_base_url: str = "http://localhost:11434"
     # Raw data paths — defaults assume the documented download step has
     # placed Olist CSVs at data/raw/olist/. Override via .env if needed.
     raw_data_dir: Path = Path("data/raw/olist")
