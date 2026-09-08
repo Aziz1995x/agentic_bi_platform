@@ -29,6 +29,7 @@ def test_chunking_produces_multiple_chunks_per_document():
     # Every chunk must retain its source metadata -- lose this and
     # citations break silently downstream.
     for chunk in chunks:
+        print(chunk)
         assert "source" in chunk.metadata
 
 
