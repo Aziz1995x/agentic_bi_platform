@@ -20,18 +20,15 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from agentic_bi.classification.schemas import QuestionClassification, ClassificationBundle, RoutedQuestion
 from agentic_bi.llm.client import get_llm
+from agentic_bi.prompts.classification import route_classification_prompt, restate_prompt
+
 
 _SYSTEM_PROMPT = """You are the routing component of a BI analyst agent.
 Classify the user's business question into exactly one investigation route.
 Be decisive -- ambiguous questions should default to full_investigation
 rather than guessing a narrower route."""
 
-_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", _SYSTEM_PROMPT),
-        ("human", "{question}"),
-    ]
-)
+_prompt = route_classification_prompt
 
 
 def build_classifier_chain():
@@ -51,12 +48,7 @@ _RESTATE_SYSTEM_PROMPT = """Restate the user's business question in one
 plain sentence, as if confirming your understanding back to them. Do not
 answer it -- only restate it."""
 
-_restate_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", _RESTATE_SYSTEM_PROMPT),
-        ("human", "{question}"),
-    ]
-)
+_restate_prompt = restate_prompt
 
 
 def build_bundle_chain():

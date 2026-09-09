@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     # placed Olist CSVs at data/raw/olist/. Override via .env if needed.
     raw_data_dir: Path = Path("data/raw/olist")
 
+    documents_dir: Path = Path("documents")
+
+    embedding_provider: str = "openai"
+    embedding_model: str = "text-embedding-3-small"
+    local_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    faiss_index_dir: Path = Path("data/vectorstore/faiss_index")
+
     @property
     def customers_csv(self) -> Path:
         return self.raw_data_dir / "olist_customers_dataset.csv"
