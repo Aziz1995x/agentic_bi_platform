@@ -51,3 +51,17 @@ def build_and_save_knowledge_base(chunks: list[Document]) -> FAISS:
     vectorstore = build_vectorstore(chunks)
     save_vectorstore(vectorstore)
     return vectorstore
+
+def get_mmr_retriever(vectorstore: FAISS, k: int = 4, fetch_k: int = 10, lambda_mult: float = 0.5):
+    """MMR retriever: balances relevance against diversity among selected chunks.
+
+    fetch_k: how many candidates to consider before re-ranking (must be >= k).
+    lambda_mult: 1.0 = pure relevance (behaves like plain similarity search),
+                 0.0 = pure diversity (ignores query relevance almost entirely).
+    0.5 is the library default and a reasonable starting point -- tune only
+    after seeing where it under/over-corrects on the eval set.
+    """
+    return vectorstore.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": k, "fetch_k": fetch_k, "lambda_mult": lambda_mult},
+    )
