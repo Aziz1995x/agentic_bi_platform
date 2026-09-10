@@ -8,7 +8,7 @@ from agentic_bi.llm.client import get_llm
 from agentic_bi.prompts.rag import rag_answer_prompt
 from agentic_bi.rag.chain import format_docs
 from agentic_bi.rag.schemas import RAGAnswer
-from agentic_bi.rag.vectorstore import get_mmr_retriever, load_vectorstore
+from agentic_bi.rag.vectorstore import get_mmr_retriever, load_vectorstore, get_multi_query_retriever
 from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
 from tests.evaluation.retrieval_cases import RETRIEVAL_TEST_CASES, RetrievalTestCase
 
@@ -42,9 +42,26 @@ def compare_answers(question: str, lambda_mult: float = 0.5) -> None:
         print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
         print()
 
+def compare_answers_basic_vs_mqr(question: str, k: int = 4) -> None:
+    vectorstore = load_vectorstore()
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+    mq_retriever = get_multi_query_retriever(vectorstore=vectorstore, k=4)
+
+    print(f"\nQUESTION: {question}\n")
+
+    for label, retriever in [("BASIC", basic_retriever), (f"MQR (lambda={k})", mq_retriever)]:
+        chain = build_chain_with_retriever(retriever)
+        result: RAGAnswer = chain.invoke(question)
+        print(f"--- {label} ---")
+        print(f"answer: {result.answer}")
+        print(f"sufficient_context: {result.sufficient_context}")
+        print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
+        print()
+
 
 if __name__ == "__main__":
-    flagged_case_ids = {9, }
+    flagged_case_ids = {10, }
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
     for case in flagged_cases:
-        compare_answers(case.question, lambda_mult=1)
+        # compare_answers(case.question, lambda_mult=0.8)
+        compare_answers_basic_vs_mqr(case.question, k=4)

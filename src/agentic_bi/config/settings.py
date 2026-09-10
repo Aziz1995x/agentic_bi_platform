@@ -30,15 +30,15 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
 
     ollama_base_url: str = "http://localhost:11434"
-    # Raw data paths — defaults assume the documented download step has
-    # placed Olist CSVs at data/raw/olist/. Override via .env if needed.
-    raw_data_dir: Path = Path("data/raw/olist")
-
-    documents_dir: Path = Path("documents")
 
     embedding_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "openai"
     embedding_model: str = "text-embedding-3-small"
-    local_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    local_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"    
+    
+    # Raw data paths — defaults assume the documented download step has
+    # placed Olist CSVs at data/raw/olist/. Override via .env if needed.
+    raw_data_dir: Path = Path("data/raw/olist")
+    documents_dir: Path = Path("documents")
     faiss_index_dir: Path = Path("data/vectorstore/faiss_index")
 
     @property

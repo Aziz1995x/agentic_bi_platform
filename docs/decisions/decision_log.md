@@ -39,3 +39,47 @@ If your corpus consists of distinct policies, replace unconstrained MMR with doc
 * **Mechanism:** When a top chunk is retrieved, automatically pull its immediate neighboring chunks ($[n-1, n, n+1]$) based on document ordering, collapsing contiguous chunks into a unified block before passing them to the LLM.
 
 ---
+
+## Observations on MultiQueryRetriever for policy documents
+
+MultiQueryRetriever evaluated against the fixed retrieval eval set (10 cases),
+under the pinned config (OpenAI `text-embedding-3-small` + `gpt-4o-mini`).
+**Not adopted as default.**
+
+Recall was 9/9, identical to plain similarity search — no case in the eval
+set that Basic retrieval failed was fixed by query rewriting, including
+case #3 ("what counts as an active customer?"), which was the case MQR was
+specifically expected to help given the vocabulary gap between casual
+phrasing and the document's formal definition language. Basic already
+retrieves the correct chunk for this case without any rewriting.
+
+**Root cause:** `text-embedding-3-small` already captures paraphrase-level
+similarity between casual and formal phrasings well enough on this corpus
+that generating alternate wordings surfaces nothing new. Query rewriting
+solves a vocabulary-gap problem this corpus doesn't currently have.
+
+**Cost observed:** one extra LLM call per query (variant generation) plus
+25-75% more chunks returned per case (5-7 vs. a clean 4 under Basic), with
+no corresponding recall improvement.
+
+**Topic drift:** case #10 (negative control, customs fees -- not covered by
+any document) showed mild drift toward `pricing_and_freight_policy.md`
+under query rewriting (2 of 4 unique sources vs. Basic's 1 of 4). This did
+not break the chain's honesty in practice -- `sufficient_context=False` was
+returned correctly under both retrievers when tested end-to-end -- but it's
+a real, measurable increase in irrelevant context volume worth watching if
+the technique is revisited on a larger/noisier corpus.
+
+**Kept available, not default:** `get_multi_query_retriever()` remains in
+`vectorstore.py` for a future scenario with genuinely inconsistent internal
+vocabulary (e.g. ingesting third-party documents that don't share this
+project's own KPI/policy terminology).
+
+**Emerging pattern across MMR + MQR:** both are correctly implemented
+techniques that target failure modes (chunk redundancy, lexical mismatch)
+this corpus doesn't actually have. Its real weak points appear to be
+structural instead -- a fact buried mid-section (case #6) and the same
+fact split across two documents for different purposes (case #8). This
+points toward reranking and/or ParentDocumentRetriever as more likely to
+show a real effect, since they target structural retrieval problems rather
+than lexical or redundancy ones.
