@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     environment: Literal["dev", "staging", "prod"]
     log_level: str = "INFO"
 
-    llm_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "gemini"
-    llm_model: str = "gemini-3.6-flash"    # "qwen/qwen3.6-27b"
+    llm_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "openai"
+    llm_model: str = "gpt-4o-mini"    # "qwen/qwen3.6-27b"
     llm_temperature: float = 0.0
 
     anthropic_api_key: SecretStr | None = None
@@ -36,8 +36,8 @@ class Settings(BaseSettings):
 
     documents_dir: Path = Path("documents")
 
-    embedding_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "gemini"
-    embedding_model: str = "gemini-embedding-2"
+    embedding_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "openai"
+    embedding_model: str = "text-embedding-3-small"
     local_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     faiss_index_dir: Path = Path("data/vectorstore/faiss_index")
 

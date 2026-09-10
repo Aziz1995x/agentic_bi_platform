@@ -44,6 +44,7 @@ def compare_answers(question: str, lambda_mult: float = 0.5) -> None:
 
 
 if __name__ == "__main__":
-    flagged_cases = [c for c in RETRIEVAL_TEST_CASES]
+    flagged_case_ids = {9, }
+    flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
     for case in flagged_cases:
-        compare_answers(case.question, lambda_mult=0.5)
+        compare_answers(case.question, lambda_mult=1)

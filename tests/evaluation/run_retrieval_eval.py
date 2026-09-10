@@ -21,7 +21,7 @@ class CaseResult:
     case: RetrievalTestCase
     retrieved_sources_in_order: list[str]
     hit: bool          # all expected_sources present in retrieved set (or, for negative
-                        # controls, always True -- see note in report())
+    # controls, always True -- see note in report())
     missing: set[str]  # expected sources NOT retrieved
     best_rank: dict[str, int]  # source -> 1-indexed rank of its first appearance
 
@@ -80,6 +80,7 @@ def print_report(results: list[CaseResult], label: str) -> None:
           f"({len(results) - len(real_cases)} negative control(s) excluded from score)")
     print(f"{'=' * 70}\n")
 
+
 def inspect_case_content(retriever: BaseRetriever, case: RetrievalTestCase, max_chars: int = 300) -> None:
     """Prints full chunk content for one case, not just source filenames.
 
@@ -101,24 +102,26 @@ def inspect_case_content(retriever: BaseRetriever, case: RetrievalTestCase, max_
 
 
 if __name__ == "__main__":
-    from agentic_bi.rag.vectorstore import get_mmr_retriever
+    from agentic_bi.rag.vectorstore import get_mmr_retriever, get_multi_query_retriever
 
     vectorstore = load_vectorstore()
 
     basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
     mmr_retriever = get_mmr_retriever(vectorstore, k=4, fetch_k=10, lambda_mult=0.8)
+    mq_retriever = get_multi_query_retriever(vectorstore=vectorstore, k=4)
 
     run_retrieval_eval(basic_retriever, label="Basic similarity search (k=4)")
-    run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
+    # run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
+    run_retrieval_eval(mq_retriever, label="MQR (k=4)")
 
     # Content-level drill-down on the flagged cases only -- cheap to run,
     # and the only way to tell whether source-level "PASS" is hiding a
     # real quality difference between the two retrievers.
-    flagged_case_ids = {7, 9}
-    flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
+    # flagged_case_ids = {7, 9}
+    # flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
 
-    for case in flagged_cases:
-        print("\n########## BASIC ##########")
-        inspect_case_content(basic_retriever, case)
-        print("########## MMR ##########")
-        inspect_case_content(mmr_retriever, case)
+    # for case in flagged_cases:
+    #     print("\n########## BASIC ##########")
+    #     inspect_case_content(basic_retriever, case)
+    #     print("########## MMR ##########")
+    #     inspect_case_content(mmr_retriever, case)
