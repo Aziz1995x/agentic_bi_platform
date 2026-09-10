@@ -10,6 +10,7 @@ from agentic_bi.rag.chain import format_docs
 from agentic_bi.rag.schemas import RAGAnswer
 from agentic_bi.rag.vectorstore import get_mmr_retriever, load_vectorstore
 from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
+from tests.evaluation.retrieval_cases import RETRIEVAL_TEST_CASES, RetrievalTestCase
 
 
 def build_chain_with_retriever(retriever):
@@ -43,4 +44,6 @@ def compare_answers(question: str, lambda_mult: float = 0.5) -> None:
 
 
 if __name__ == "__main__":
-    compare_answers("What happens if a customer returns an item after 30 days?", lambda_mult=0.8)
+    flagged_cases = [c for c in RETRIEVAL_TEST_CASES]
+    for case in flagged_cases:
+        compare_answers(case.question, lambda_mult=0.5)

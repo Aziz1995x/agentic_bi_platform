@@ -3,6 +3,7 @@
 # data (raw/processed data never belongs in Git; especially non-commercial-licensed Olist data)
 data/raw/*.csv
 data/processed/
+data/vectorstore/faiss_index/*
 *.csv
 
 # environment / secrets

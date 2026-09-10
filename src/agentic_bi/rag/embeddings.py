@@ -25,6 +25,14 @@ def get_embeddings() -> Embeddings:
             api_key=settings.openai_api_key,
         )
 
+    elif settings.embedding_provider == "gemini":
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+        return GoogleGenerativeAIEmbeddings(
+            model=settings.embedding_model,
+            google_api_key=settings.gemini_api_key,
+        )
+
     elif settings.embedding_provider == "local":
         from langchain_huggingface import HuggingFaceEmbeddings
 

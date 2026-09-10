@@ -20,13 +20,14 @@ class Settings(BaseSettings):
     environment: Literal["dev", "staging", "prod"]
     log_level: str = "INFO"
 
-    llm_provider: Literal["anthropic", "openai", "groq", "local"] = "openai"
-    llm_model: str = "gpt-4o-mini"    # "qwen/qwen3.6-27b"
+    llm_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "gemini"
+    llm_model: str = "gemini-3.6-flash"    # "qwen/qwen3.6-27b"
     llm_temperature: float = 0.0
 
     anthropic_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
 
     ollama_base_url: str = "http://localhost:11434"
     # Raw data paths — defaults assume the documented download step has
@@ -35,8 +36,8 @@ class Settings(BaseSettings):
 
     documents_dir: Path = Path("documents")
 
-    embedding_provider: str = "openai"
-    embedding_model: str = "text-embedding-3-small"
+    embedding_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "gemini"
+    embedding_model: str = "gemini-embedding-2"
     local_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     faiss_index_dir: Path = Path("data/vectorstore/faiss_index")
 
