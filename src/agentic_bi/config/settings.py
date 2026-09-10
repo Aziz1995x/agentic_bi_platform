@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     embedding_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "openai"
     embedding_model: str = "text-embedding-3-small"
     local_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"    
+
+    reranker_provider: Literal["cohere", "local"] = "cohere"
+    cohere_model: str = "rerank-v3.5"
+    cohere_api_key: SecretStr | None = None
+    local_reranker_model: str = "BAAI/bge-reranker-base"
     
     # Raw data paths — defaults assume the documented download step has
     # placed Olist CSVs at data/raw/olist/. Override via .env if needed.

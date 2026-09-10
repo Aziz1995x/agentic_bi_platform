@@ -83,3 +83,80 @@ fact split across two documents for different purposes (case #8). This
 points toward reranking and/or ParentDocumentRetriever as more likely to
 show a real effect, since they target structural retrieval problems rather
 than lexical or redundancy ones.
+
+## Observations on Reranking (Cohere rerank-v3.5) for policy documents
+
+Reranking evaluated against the fixed retrieval eval set, under the pinned
+config, using ContextualCompressionRetriever with fetch_k=10 candidates
+re-scored down to top_n=4 (then re-tested at top_n=2).
+
+**At top_n=4:** recall matched Basic (9/9), but with one important side
+effect. Reranking's re-scoring on case #8 ("how is a seller's region
+determined?") demoted `pricing_and_freight_policy.md` -- which had passed
+under Basic at rank 3 -- in favor of `data_dictionary.md`, which was not in
+the original expected_sources. Inspection showed this was the reranker
+correctly identifying a better match: `pricing_and_freight_policy.md`'s
+rank-3 hit came from an unrelated section ("Regional Price Variation")
+that merely mentions sellers/regions in a pricing context, while
+`data_dictionary.md` contains an explicit "Known Data Quirks" note stating
+the seller-region derivation directly. This was a genuine ground-truth gap
+in the original test case, not a reranking failure -- corrected
+expected_sources to {kpi_definitions.md, data_dictionary.md} and confirmed
+both retrievers now score 9/9 under the corrected case.
+
+**At top_n=2 (testing whether reranking enables a safe k reduction):**
+Both Basic and Reranked scored 8/9, failing on the identical case (#4,
+cross-document synthesis) for the identical reason -- `customer_segmentation.md`
+occupies both top-2 slots under both retrievers, crowding out
+`kpi_definitions.md` regardless of ranking quality. Case #8, originally
+expected to be reranking's clearest win at reduced k, turned out not to
+need reranking at all once its ground truth was corrected -- both correct
+sources already rank 1-2 under plain Basic similarity search.
+
+**Verdict: no case in this eval set demonstrates reranking succeeding at a
+smaller k where Basic fails.** The corpus's actual constraint on k is
+structural: multi-source questions need enough slots (k>=3-4) for every
+required source to survive being crowded out by a single dominant source,
+which is a "how many distinct sources fit in the window" problem, not a
+"which chunk ranks highest within the window" problem -- and reranking only
+solves the latter. `get_reranking_retriever()` kept available (both Cohere
+and local BAAI/bge-reranker-base providers implemented) for future use if
+the corpus grows to include genuinely noisy/low-precision candidate pools,
+but not adopted as default. k=4 remains the recommended default.
+
+---
+
+## Phase 5 summary: MMR, MultiQueryRetriever, and Reranking
+
+All three Advanced RAG techniques evaluated in this phase were correctly
+implemented and produced no net improvement over plain similarity search
+on this corpus, each for a distinct, now-documented reason:
+
+- **MMR** targets chunk redundancy -- but this corpus's chunks are mostly
+  non-redundant (distinct sections per document), so MMR's diversity
+  penalty displaces genuinely relevant same-document chunks in favor of
+  unrelated ones. Confirmed regression: case #9 produced a false
+  "insufficient context" response even at lambda_mult=0.8.
+- **MultiQueryRetriever** targets lexical/vocabulary mismatch -- but
+  text-embedding-3-small already captures paraphrase-level similarity well
+  enough on this corpus's fairly standard business English that query
+  rewriting surfaced nothing new. Cost: one extra LLM call and 25-75% more
+  chunks per query, no recall gain.
+- **Reranking** targets ranking quality within a fixed candidate window --
+  but this corpus's real bottleneck is how many *distinct sources* fit
+  within k for multi-document questions, not which chunk from a single
+  source ranks highest. Reranking optimizes the wrong axis for this
+  specific constraint.
+
+**Unifying conclusion:** this is a small (5-document), well-organized,
+single-topic-per-section corpus written in standard business English. Its
+one genuine retrieval constraint is that cross-document questions need a
+generous k (>=4) so no single dominant source crowds out a second required
+source -- a constraint no single-retriever ranking/rewriting technique
+fixes, because it's a capacity problem, not a relevance problem. All three
+techniques remain implemented and available (`get_mmr_retriever`,
+`get_multi_query_retriever`, `get_reranking_retriever`) for future corpora
+where their target failure modes are actually present -- e.g. a larger,
+noisier corpus with genuine near-duplicate content, inconsistent
+third-party vocabulary, or high-precision-required ranking within a large
+candidate pool. Default retriever remains plain similarity search at k=4.

@@ -65,8 +65,17 @@ RETRIEVAL_TEST_CASES: list[RetrievalTestCase] = [
     RetrievalTestCase(
         8,
         "How is a seller's region determined?",
-        {"kpi_definitions.md", "pricing_and_freight_policy.md"},
-        "Same fact (sellers -> employees -> regions) stated in two docs for different purposes.",
+        {"kpi_definitions.md", "data_dictionary.md"},  # updated: data_dictionary.md
+        # states this fact directly (a "Known Data Quirks"-style note from
+        # Phase 2); pricing_and_freight_policy.md mentions "seller's region"
+        # in an unrelated context (Regional Price Variation) and was never
+        # actually the right source, despite passing on source-name alone
+        # under plain similarity search
+        "Fact appears in kpi_definitions.md (Regional Contribution) and "
+        "data_dictionary.md (Known Data Quirks) explicitly. Corrected from "
+        "original ground truth after reranking exposed that "
+        "pricing_and_freight_policy.md's rank-3 hit was from an unrelated "
+        "section, not a genuine match.",
     ),
     RetrievalTestCase(
         9,
