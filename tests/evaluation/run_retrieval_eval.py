@@ -108,8 +108,14 @@ def inspect_case_content(retriever: BaseRetriever, case: RetrievalTestCase, max_
     for i, doc in enumerate(docs, start=1):
         content_preview = doc.page_content[:max_chars].replace("\n", " ")
         print(f"\n  [{i}] source: {doc.metadata['source']}")
+        keys = doc.metadata.keys()
+        for key in keys:
+            if key != 'source':
+                print(f"      {key}: {doc.metadata[key]}")
         print(f"      content: {content_preview}{'...' if len(doc.page_content) > max_chars else ''}")
     print(f"{'=' * 70}\n")
+
+
 
 def run_colbert_eval(RAG, label: str, k: int = 4) -> None:
     """ColBERT doesn't implement BaseRetriever.invoke() the way every
@@ -174,16 +180,36 @@ if __name__ == "__main__":
 
     from langchain_community.vectorstores import FAISS
     from agentic_bi.rag.embeddings import get_embeddings
+
     # print(f"Contextualizing {len(chunks)} chunks (one LLM call each)...")
     # contextual_chunks = contextualize_chunks(raw_docs, chunks)
     # contextual_vectorstore = FAISS.from_documents(contextual_chunks, get_embeddings())
     # contextual_retriever = contextual_vectorstore.as_retriever(search_kwargs={"k": 4})
 
-    raptor_nodes = build_raptor_tree(chunks, max_levels=2)
-    print(f"RAPTOR tree: {len(chunks)} leaves + {len(raptor_nodes) - len(chunks)} summary nodes "
-          f"= {len(raptor_nodes)} total")
-    raptor_vectorstore = FAISS.from_documents(raptor_nodes, get_embeddings())
-    raptor_retriever = raptor_vectorstore.as_retriever(search_kwargs={"k": 4})
+    # raptor_nodes = build_raptor_tree(chunks, max_levels=2)
+    # print(f"RAPTOR tree: {len(chunks)} leaves + {len(raptor_nodes) - len(chunks)} summary nodes "
+    #       f"= {len(raptor_nodes)} total")
+    # raptor_vectorstore = FAISS.from_documents(raptor_nodes, get_embeddings())
+    # raptor_retriever = raptor_vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    # Enriched Retriever (much like self query retriever with enriched metadata)
+    from agentic_bi.rag.metadata_enrichment import enrich_chunk_metadata
+    metadata_enriched_chunks = enrich_chunk_metadata(chunks=chunks, raw_documents=raw_docs)
+    enriched_vectorstore = FAISS.from_documents(metadata_enriched_chunks, get_embeddings())
+    enriched_retriever = enriched_vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    # DID NOT WORK DUE TO VERSION MISMATCH IN MODULES
+    # SelfQueryRetriever logs its generated filter + rewritten query via
+    # langchain.retrievers.self_query.base at INFO level -- same pattern
+    # as MultiQueryRetriever back in Step 2. This is the actual thing
+    # worth reading, not just the recall number.
+    # import logging
+    # from agentic_bi.rag.self_query_retriever import build_self_query_retriever
+    # logging.basicConfig()
+    # logging.getLogger("langchain.retrievers.self_query.base").setLevel(logging.INFO)
+    # logging.getLogger("langchain.chains.query_constructor.base").setLevel(logging.INFO)
+    # self_query_retriever = build_self_query_retriever(enriched_vectorstore, k=4)
+
 
     run_retrieval_eval(basic_retriever, label="Basic similarity search (k=4)")
     # run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
@@ -193,13 +219,15 @@ if __name__ == "__main__":
     # run_retrieval_eval(bm25_retriever, label="bm25_retriever (k=2)")
     # run_retrieval_eval(hybrid_retriever, label="hybrid_retriever (k=2, dense_weight=0.5)")
     # run_retrieval_eval(contextual_retriever, label="Contextual Retrieval (k=4)")
-    run_retrieval_eval(raptor_retriever, label="RAPTOR (k=4)")
+    # run_retrieval_eval(raptor_retriever, label="RAPTOR (k=4)")
+    run_retrieval_eval(enriched_retriever, label="Enriched Retriever (k=4)")
+    # run_retrieval_eval(self_query_retriever, label="Self-Query (k=4)")        # did not work
 
     # Content-level drill-down on the flagged cases only -- cheap to run,
     # and the only way to tell whether source-level "PASS" is hiding a
     # real quality difference between the two retrievers.
-    flagged_case_ids = {4, 6, 7, 8, 9}
-    flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
+    # flagged_case_ids = {4, 6, 7, 8, 9}
+    # flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
 
     # for case in flagged_cases:
     #     print("\n########## BASIC ##########")
@@ -218,7 +246,8 @@ if __name__ == "__main__":
         # inspect_case_content(hybrid_retriever, case)
         # print("########## Contextual Query DOCUMENT RETRIEVER ##########")
         # inspect_case_content(contextual_retriever, case)
-
+        # print("########## METADATA ENRICHED DOCUMENT RETRIEVER ##########")
+        # inspect_case_content(enriched_retriever, case)
 
     # Colbert Retriever: Not Working because of env version issues!
     # from src.agentic_bi.rag.colbert_retriever import build_colbert_index

@@ -423,3 +423,49 @@ Revisit only if the knowledge base grows to a scale where multiple
 genuine thematic groupings exist within a single topic area -- e.g. many
 historical quarterly business reports, where a "revenue trends across
 2024" summary node would capture something no single report chunk could.
+
+## Self-Query Retrieval — not evaluated, dependency conflicts
+
+Attempted to wire `SelfQueryRetriever` against enriched chunk metadata
+(`document_type`, `section_title`, `mentions_segment` -- see
+metadata_enrichment.py, which is independently valid and kept active)
+to test whether LLM-generated metadata filters could resolve the
+recurring capacity-constraint problem identified across MMR, MultiQuery,
+Reranking, and ParentDocumentRetriever (case #4's `customer_segmentation.md`
+crowding out `kpi_definitions.md` at low k).
+
+**Not completed -- blocked by cascading import failures**, distinct from
+but structurally similar to the ColBERT/RAGatouille issue earlier in this
+phase:
+
+1. `SelfQueryRetriever.from_llm()`'s internal translator-selection logic
+   (`_get_builtin_translator`) performs one large, unconditional import of
+   ~15-20 optional third-party vectorstore integration classes from
+   `langchain_community.vectorstores` (Databricks, DeepLake, and others),
+   solely to support `isinstance()` checks against backends never used in
+   this project (FAISS only). Several of these classes have been
+   deprecated/removed from the installed `langchain_community` version.
+2. A self-healing compatibility shim was attempted (catch each missing
+   name, patch a dummy placeholder, retry) but introduced its own
+   distinct failure: the shim's probe-import behaved differently from
+   the actual deferred runtime import inside `.from_llm()`, due to
+   import-order/lazy-loading behavior in the current LangChain package
+   split (`langchain` / `langchain_classic` / `langchain_community`)
+   that wasn't worth reverse-engineering further.
+
+**Decision: skip Self-Query Retrieval for this project.** Combined with
+the ColBERT/RAGatouille experience earlier in this phase, this establishes
+a consistent, real pattern: this specific corner of the current LangChain
+package ecosystem (post `langchain_classic` split) has real, non-trivial
+version-alignment fragility around less-common retriever features that
+eagerly import many optional integrations. This is itself a legitimate
+production-relevant finding, independent of retrieval quality -- a
+technique's integration cost is part of its real cost, not just its
+theoretical benefit. `metadata_enrichment.py`'s structured fields
+(document_type, section_title, mentions_segment) remain valid and
+correctly computed (validated via content inspection across cases #4, #6,
+#7, #8, #9) and could support a hand-rolled metadata-filtering step (a
+simple pre-filter on the vectorstore's `search_kwargs={"filter": ...}`,
+bypassing SelfQueryRetriever's LLM-driven filter construction and its
+fragile translator-selection layer entirely) if this capability is
+revisited later without needing the full SelfQueryRetriever machinery.
