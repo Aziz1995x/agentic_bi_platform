@@ -322,3 +322,66 @@ before the dependency issues surfaced. Not worth the integration cost for
 this corpus. Revisit only if the knowledge base grows into a domain where
 BM25 has already been shown insufficient AND precise term-level matching
 is a demonstrated, not merely theoretical, requirement.
+
+## Observations on Contextual Retrieval for policy documents
+
+Contextual Retrieval (Anthropic's technique: LLM-generated situating
+description prepended to each chunk before embedding) evaluated against
+the fixed eval set at k=4, with a full chain-level comparison across 6
+cases. **Not adopted.**
+
+**Retrieval-level result was inconsistent across repeated index builds --
+itself the most important finding.** A first run at k=4 showed case #4
+regressing to a hard FAIL (all 4 slots going to `customer_segmentation.md`,
+`kpi_definitions.md` dropped entirely). A second rebuild, using the exact
+same code and chunks, saw case #4 pass again (matching Basic, `kpi_definitions.md`
+surviving at rank 4). This is a materially different property from every
+other technique tested in this phase: MMR, Reranking, ParentDocumentRetriever,
+and BM25/Hybrid are all deterministic given a fixed index -- Contextual
+Retrieval's index itself depends on an LLM's non-deterministic generation
+at build time, so a corpus already sitting at a razor-thin k-budget margin
+(case #4's `kpi_definitions.md` has ranked exactly 4th-of-4 in nearly every
+technique tested this phase) can flip pass/fail from rebuild to rebuild
+for reasons unrelated to the query itself. This instability alone is a
+meaningful production concern independent of any quality question --
+a rebuilt index should not silently change which sources are considered
+retrievable for a previously-passing question.
+
+**One genuine, real ranking improvement was observed: case #9.** Every
+prior technique's top-4 (Basic, MMR, MQR, Reranking, ParentDocumentRetriever,
+BM25, Hybrid) consistently surfaced "Restocking Fee," "Non-Returnable
+Categories," "Eligible Reasons," or the document header -- never the
+"Eligibility Window" section, which is the part of the document
+containing the actual 7-day/exception-process answer. Contextual
+Retrieval's generated description for that chunk ("this chunk is from
+the Eligibility Window section... handling of requests made after this
+period as exceptions") correctly identified and surfaced it at rank 3 --
+the first technique in this phase to visibly rank that specific section
+in the top-4.
+
+**This ranking improvement did not change the generated answer.** A
+full chain-level comparison across 6 cases -- including case #9 --
+showed functionally identical answers between Basic and Contextual
+Retrieval in every case, word-for-word equivalent on the substantive
+claims. Basic was already answering case #9 correctly using whatever
+mix of chunks it retrieved, because the answer-bearing content
+("Requests submitted after this window are handled as exceptions...")
+was accessible regardless of which specific chunk ranked highest. The
+retrieval-level win was real but invisible at the layer that actually
+matters for the user.
+
+**Verdict:** Contextual Retrieval demonstrated a genuine, mechanistically
+real fix for one specific retrieval-ranking problem (case #9's buried
+Eligibility Window section) that four prior techniques did not achieve --
+but the fix produced no measurable improvement in final answer quality,
+and introduced real costs: one LLM call per chunk at every index build
+(44 calls for this corpus's current chunk count, scaling linearly with
+corpus size and rebuild frequency) and non-deterministic retrieval
+rankings that can flip a previously-passing case without any change to
+the underlying documents or query. Not adopted as default. Worth
+revisiting only if the corpus grows large enough that Basic's redundant
+"the answer exists somewhere in several chunks anyway" safety net stops
+holding -- i.e., if a future document's key fact exists in exactly one
+chunk with no redundant restatement elsewhere, contextualization's
+ranking improvement would likely matter at the chain level in a way it
+didn't here.

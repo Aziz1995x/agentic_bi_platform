@@ -152,41 +152,50 @@ if __name__ == "__main__":
     from agentic_bi.rag.loaders import load_knowledge_base_documents
     from agentic_bi.rag.bm25_retriever import build_hybrid_retriever, build_bm25_retriever
     from agentic_bi.rag.chunking import split_documents
+    from agentic_bi.rag.contextual_chunking import contextualize_chunks
 
     vectorstore = load_vectorstore()
 
-    # basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
     # mmr_retriever = get_mmr_retriever(vectorstore, k=4, fetch_k=10, lambda_mult=0.8)
     # mq_retriever = get_multi_query_retriever(vectorstore=vectorstore, k=4)
     # rerank_retriever = get_reranking_retriever(vectorstore=vectorstore, fetch_k=10, top_n=4)
 
-    # raw_docs = load_knowledge_base_documents()
+    raw_docs = load_knowledge_base_documents()
     # parent_retriever, _ = build_parent_document_retriever(raw_documents=raw_docs, k=4)
 
-    # chunks = split_documents(documents=raw_docs)
+    chunks = split_documents(documents=raw_docs)
     # bm25_retriever = build_bm25_retriever(chunks=chunks, k=2)
     # hybrid_retriever = build_hybrid_retriever(vectorstore=vectorstore,
     #                                           chunks=chunks,
     #                                           k=2,
     #                                           dense_weight=0.5)
 
-    # run_retrieval_eval(basic_retriever, label="Basic similarity search (k=2)")
+    from langchain_community.vectorstores import FAISS
+    from agentic_bi.rag.embeddings import get_embeddings
+    print(f"Contextualizing {len(chunks)} chunks (one LLM call each)...")
+    contextual_chunks = contextualize_chunks(raw_docs, chunks)
+    contextual_vectorstore = FAISS.from_documents(contextual_chunks, get_embeddings())
+    contextual_retriever = contextual_vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    run_retrieval_eval(basic_retriever, label="Basic similarity search (k=4)")
     # run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
     # run_retrieval_eval(mq_retriever, label="MQR (k=4)")
     # run_retrieval_eval(rerank_retriever, label="Reranked (fetch_k=10, top_n=4)")
     # run_retrieval_eval(parent_retriever, label="ParentDocumentRetriever (child=250, parent=1200, k=4)")
     # run_retrieval_eval(bm25_retriever, label="bm25_retriever (k=2)")
     # run_retrieval_eval(hybrid_retriever, label="hybrid_retriever (k=2, dense_weight=0.5)")
+    run_retrieval_eval(contextual_retriever, label="Contextual Retrieval (k=4)")
 
     # Content-level drill-down on the flagged cases only -- cheap to run,
     # and the only way to tell whether source-level "PASS" is hiding a
     # real quality difference between the two retrievers.
-    # flagged_case_ids = {4, 6, 7, 8, 9}
-    # flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
+    flagged_case_ids = {4, 6, 7, 8, 9}
+    flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
 
-    # for case in flagged_cases:
-        # print("\n########## BASIC ##########")
-        # inspect_case_content(basic_retriever, case)
+    for case in flagged_cases:
+        print("\n########## BASIC ##########")
+        inspect_case_content(basic_retriever, case)
         # print("########## MMR ##########")
         # inspect_case_content(mmr_retriever, case)
         # print("########## MQR ##########")
@@ -199,6 +208,9 @@ if __name__ == "__main__":
         # inspect_case_content(bm25_retriever, case)
         # print("########## HYBRID (DENSE+BM25) DOCUMENT RETRIEVER ##########")
         # inspect_case_content(hybrid_retriever, case)
+        print("########## Contextual Query DOCUMENT RETRIEVER ##########")
+        inspect_case_content(contextual_retriever, case)
+
 
     # Colbert Retriever: Not Working because of env version issues!
     # from src.agentic_bi.rag.colbert_retriever import build_colbert_index
@@ -207,4 +219,3 @@ if __name__ == "__main__":
     # COLBERT_RAG, _ = build_colbert_index(chunks=chunks)
     # run_colbert_eval(COLBERT_RAG, label="ColBERT (k=4)", k=4)
     # run_colbert_eval(COLBERT_RAG, label="ColBERT (k=2)", k=2)
-    

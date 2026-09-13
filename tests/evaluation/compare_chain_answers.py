@@ -120,6 +120,34 @@ def compare_answers_basic_vs_hybrid_doc(question: str) -> None:
         print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
         print()
 
+
+def compare_answers_basic_vs_contextual_doc(question: str) -> None:
+    vectorstore = load_vectorstore()
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    from langchain_community.vectorstores import FAISS
+    from agentic_bi.rag.embeddings import get_embeddings
+    from agentic_bi.rag.chunking import split_documents
+    from agentic_bi.rag.contextual_chunking import contextualize_chunks
+
+    raw_docs = load_knowledge_base_documents()
+    chunks = split_documents(documents=raw_docs)
+    contextual_chunks = contextualize_chunks(raw_docs, chunks)
+    contextual_vectorstore = FAISS.from_documents(contextual_chunks, get_embeddings())
+    contextual_retriever = contextual_vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    print(f"\nQUESTION: {question}\n")
+
+    for label, retriever in [("BASIC", basic_retriever), (f"Contextual Retrieval (k=4)", contextual_retriever)]:
+        chain = build_chain_with_retriever(retriever)
+        result: RAGAnswer = chain.invoke(question)
+        print(f"--- {label} ---")
+        print(f"answer: {result.answer}")
+        print(f"sufficient_context: {result.sufficient_context}")
+        print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
+        print()
+
+
 if __name__ == "__main__":
     flagged_case_ids = {4,5,6,7,8,9}
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
@@ -127,4 +155,5 @@ if __name__ == "__main__":
         # compare_answers(case.question, lambda_mult=0.8)
         # compare_answers_basic_vs_rerank(case.question)
         # compare_answers_basic_vs_parent_doc(case.question)
-        compare_answers_basic_vs_hybrid_doc(question=case.question)
+        # compare_answers_basic_vs_hybrid_doc(question=case.question)
+        compare_answers_basic_vs_contextual_doc(question=case.question)
