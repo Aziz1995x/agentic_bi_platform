@@ -162,43 +162,42 @@ if __name__ == "__main__":
     from agentic_bi.rag.raptor import build_raptor_tree
 
     vectorstore = load_vectorstore()
+    raw_docs = load_knowledge_base_documents()
+    chunks = split_documents(documents=raw_docs)
 
     basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
     # mmr_retriever = get_mmr_retriever(vectorstore, k=4, fetch_k=10, lambda_mult=0.8)
     # mq_retriever = get_multi_query_retriever(vectorstore=vectorstore, k=4)
     # rerank_retriever = get_reranking_retriever(vectorstore=vectorstore, fetch_k=10, top_n=4)
-
-    raw_docs = load_knowledge_base_documents()
     # parent_retriever, _ = build_parent_document_retriever(raw_documents=raw_docs, k=4)
-
-    chunks = split_documents(documents=raw_docs)
     # bm25_retriever = build_bm25_retriever(chunks=chunks, k=2)
     # hybrid_retriever = build_hybrid_retriever(vectorstore=vectorstore,
     #                                           chunks=chunks,
     #                                           k=2,
     #                                           dense_weight=0.5)
 
+    # CONTEXTUAL RETRIEVER
     from langchain_community.vectorstores import FAISS
     from agentic_bi.rag.embeddings import get_embeddings
-
     # print(f"Contextualizing {len(chunks)} chunks (one LLM call each)...")
     # contextual_chunks = contextualize_chunks(raw_docs, chunks)
     # contextual_vectorstore = FAISS.from_documents(contextual_chunks, get_embeddings())
     # contextual_retriever = contextual_vectorstore.as_retriever(search_kwargs={"k": 4})
 
+    # RAPTOR ALGORITHM
     # raptor_nodes = build_raptor_tree(chunks, max_levels=2)
     # print(f"RAPTOR tree: {len(chunks)} leaves + {len(raptor_nodes) - len(chunks)} summary nodes "
     #       f"= {len(raptor_nodes)} total")
     # raptor_vectorstore = FAISS.from_documents(raptor_nodes, get_embeddings())
     # raptor_retriever = raptor_vectorstore.as_retriever(search_kwargs={"k": 4})
 
-    # Enriched Retriever (much like self query retriever with enriched metadata)
+    # ENRICHED RETRIEVER (much like self query retriever with enriched metadata)
     from agentic_bi.rag.metadata_enrichment import enrich_chunk_metadata
     metadata_enriched_chunks = enrich_chunk_metadata(chunks=chunks, raw_documents=raw_docs)
     enriched_vectorstore = FAISS.from_documents(metadata_enriched_chunks, get_embeddings())
     enriched_retriever = enriched_vectorstore.as_retriever(search_kwargs={"k": 4})
 
-    # DID NOT WORK DUE TO VERSION MISMATCH IN MODULES
+    # SELF QUERY RETRIEVER (DID NOT WORK DUE TO VERSION MISMATCH IN MODULES)
     # SelfQueryRetriever logs its generated filter + rewritten query via
     # langchain.retrievers.self_query.base at INFO level -- same pattern
     # as MultiQueryRetriever back in Step 2. This is the actual thing
@@ -210,6 +209,11 @@ if __name__ == "__main__":
     # logging.getLogger("langchain.chains.query_constructor.base").setLevel(logging.INFO)
     # self_query_retriever = build_self_query_retriever(enriched_vectorstore, k=4)
 
+    # Colbert Retriever: Not Working because of env version issues!
+    # from src.agentic_bi.rag.colbert_retriever import build_colbert_index
+    # raw_docs = load_knowledge_base_documents()
+    # chunks = split_documents(raw_docs)
+    # COLBERT_RAG, _ = build_colbert_index(chunks=chunks)
 
     run_retrieval_eval(basic_retriever, label="Basic similarity search (k=4)")
     # run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
@@ -222,16 +226,16 @@ if __name__ == "__main__":
     # run_retrieval_eval(raptor_retriever, label="RAPTOR (k=4)")
     run_retrieval_eval(enriched_retriever, label="Enriched Retriever (k=4)")
     # run_retrieval_eval(self_query_retriever, label="Self-Query (k=4)")        # did not work
+    # run_colbert_eval(COLBERT_RAG, label="ColBERT (k=4)", k=4)     # did not work
 
     # Content-level drill-down on the flagged cases only -- cheap to run,
     # and the only way to tell whether source-level "PASS" is hiding a
     # real quality difference between the two retrievers.
-    # flagged_case_ids = {4, 6, 7, 8, 9}
-    # flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
-
-    # for case in flagged_cases:
-    #     print("\n########## BASIC ##########")
-    #     inspect_case_content(basic_retriever, case)
+    flagged_case_ids = {4, 6, 7, 8, 9}
+    flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
+    for case in flagged_cases:
+        print("\n########## BASIC ##########")
+        inspect_case_content(basic_retriever, case)
         # print("########## MMR ##########")
         # inspect_case_content(mmr_retriever, case)
         # print("########## MQR ##########")
@@ -246,13 +250,5 @@ if __name__ == "__main__":
         # inspect_case_content(hybrid_retriever, case)
         # print("########## Contextual Query DOCUMENT RETRIEVER ##########")
         # inspect_case_content(contextual_retriever, case)
-        # print("########## METADATA ENRICHED DOCUMENT RETRIEVER ##########")
-        # inspect_case_content(enriched_retriever, case)
-
-    # Colbert Retriever: Not Working because of env version issues!
-    # from src.agentic_bi.rag.colbert_retriever import build_colbert_index
-    # raw_docs = load_knowledge_base_documents()
-    # chunks = split_documents(raw_docs)
-    # COLBERT_RAG, _ = build_colbert_index(chunks=chunks)
-    # run_colbert_eval(COLBERT_RAG, label="ColBERT (k=4)", k=4)
-    # run_colbert_eval(COLBERT_RAG, label="ColBERT (k=2)", k=2)
+        print("########## METADATA ENRICHED DOCUMENT RETRIEVER ##########")
+        inspect_case_content(enriched_retriever, case)

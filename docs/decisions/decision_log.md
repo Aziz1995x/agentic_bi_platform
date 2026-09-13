@@ -469,3 +469,82 @@ simple pre-filter on the vectorstore's `search_kwargs={"filter": ...}`,
 bypassing SelfQueryRetriever's LLM-driven filter construction and its
 fragile translator-selection layer entirely) if this capability is
 revisited later without needing the full SelfQueryRetriever machinery.
+
+
+## Phase 5 — Advanced RAG: Complete Summary (9 techniques attempted)
+
+Nine Advanced RAG techniques were attempted against a fixed 10-case
+retrieval eval set (tests/evaluation/retrieval_cases.py) under a pinned
+config (OpenAI text-embedding-3-small + gpt-4o-mini). Seven were fully
+evaluated with measured verdicts; two were blocked by genuine dependency
+fragility and documented as such rather than abandoned silently.
+
+### Evaluated, not adopted (5)
+
+| Technique | Verdict | Core reason |
+|---|---|---|
+| **MMR** | Not adopted | Corpus has low chunk redundancy per document; diversity penalty displaces relevant same-document chunks. Confirmed regression on case #9 (false "insufficient context"). |
+| **MultiQueryRetriever** | Not adopted | text-embedding-3-small already handles paraphrase similarity this corpus needs; no case fixed that Basic wasn't already passing. Added cost (extra LLM call, 25-75% more chunks) with no recall gain. |
+| **Reranking (Cohere rerank-v3.5)** | Not adopted | No improvement at matched k. Re-scoring exposed a ground-truth gap in case #8 (corrected), but could not rescue a k=4→k=2 reduction -- failed case #4 identically to Basic. |
+| **ParentDocumentRetriever** | Not adopted (measurably worse) | The only technique to underperform Basic at reduced k (7/9 vs 8/9). Its "k" controls child-chunk count, not returned-document count; dedup silently shrinks effective k below the configured value, compounding the corpus's real bottleneck rather than relieving it. |
+| **RAPTOR** | Not adopted | Confirmed the prediction made before testing: corpus too small for a meaningful hierarchy. Clustering collapsed after one level (44 leaves → 2 summaries). The resulting mega-summary nodes were actively counterproductive, causing a real regression on case #4. |
+
+### Evaluated, genuinely adopted or partially adopted (2)
+
+| Technique | Verdict | Core reason |
+|---|---|---|
+| **Hybrid (Dense + BM25, RRF fusion)** | **Recommended if k is ever reduced below 4** | The only technique to beat Basic's k=2 recall (9/9 vs 8/9), via a mechanistically confirmed reason: dense and BM25 rank case #4's documents in opposite order, so fusion recovers what dense-only search was crowding out. Chain-level check showed this specific case's improvement was a safety margin (Basic's single surviving chunk was already self-sufficient) rather than a demonstrated answer-quality fix -- but the mechanism is sound and the cost is low. BM25-alone was the worst-performing single retriever tested (5/9 at k=2), confirming hybrid's value comes from combining two differently-wrong signals, not from BM25 being individually strong. |
+| **Contextual Retrieval** | Not adopted, but only technique to surface a previously-invisible relevant chunk | Correctly ranked case #9's "Eligibility Window" section into the top-4 for the first time across all techniques tested -- but chain-level comparison showed this didn't change the final answer, since Basic's answer was already correct via redundant content elsewhere. Also revealed a real operational concern: retrieval rankings were non-deterministic across index rebuilds (LLM-generated context descriptions vary), causing case #4 to flip pass/fail between two otherwise-identical runs -- a property no other tested technique shares. |
+
+### Blocked by dependency fragility, not retrieval quality (2)
+
+| Technique | Status | Core issue |
+|---|---|---|
+| **ColBERT (via RAGatouille)** | Skipped | Two independent, unrelated import failures (pyarrow/datasets version conflict; ragatouille's own code importing a LangChain module path no longer present in current LangChain) before any retrieval code could run. |
+| **Self-Query Retrieval** | Skipped | SelfQueryRetriever's translator-selection logic eagerly imports ~15-20 optional vectorstore integrations for isinstance() checks; several are deprecated/removed from the installed langchain_community. A compatibility shim was attempted and abandoned after introducing its own distinct failure. metadata_enrichment.py (document_type, section_title, mentions_segment) remains valid and could support a hand-rolled filter later without SelfQueryRetriever's fragile machinery. |
+
+### Unifying findings
+
+**1. This corpus's one real retrieval constraint is source-slot capacity,
+not relevance, redundancy, or lexical matching.** Case #4 (cross-document
+synthesis: Enterprise segmentation + Active Customer status) was the
+single recurring failure point across MMR, ParentDocumentRetriever, and
+RAPTOR at reduced k -- in every case because one dominant document's
+chunks crowd out a second required source within a small k, not because
+any technique misjudged relevance. Only Hybrid retrieval's rank-fusion
+mechanism (combining two independently-wrong rankings) demonstrated a
+measured way past this, and even then, the chain-level stakes were lower
+than the retrieval-level numbers suggested.
+
+**2. Techniques that improve ranking *within* an unfiltered candidate
+pool (Reranking) do not address a capacity problem; techniques that
+change *what's granular enough to be a "slot"* (ParentDocumentRetriever)
+can make it worse via silent deduplication; techniques that add candidate
+diversity by construction (MMR) can actively harm a corpus whose real
+content isn't redundant to begin with.** Each technique's failure mode
+was mechanistically distinct and specific to this corpus's actual shape
+-- five short, single-topic, non-redundant, well-organized markdown
+documents -- not a generic verdict against any of these techniques in
+general.
+
+**3. Integration cost is a real, measurable dimension distinct from
+retrieval quality, and matters independently of it.** Two of nine
+techniques never reached a quality comparison at all due to dependency
+fragility in the current LangChain package ecosystem
+(langchain/langchain_classic/langchain_community version alignment).
+This is itself a legitimate finding for a production-oriented project:
+a technique's true cost includes its integration risk, not just its
+theoretical benefit.
+
+**4. Default retriever remains plain similarity search at k=4.** No
+tested technique justifies added complexity, cost, or (in three cases)
+risk of regression for this specific knowledge base. `get_mmr_retriever`,
+`get_multi_query_retriever`, `get_reranking_retriever`, and
+`build_hybrid_retriever` are all implemented, tested, and available for
+future use; Hybrid is the one specifically recommended if k is ever
+reduced below 4 for cost/latency reasons. This conclusion is scoped to
+this corpus's current size and structure (5 documents, ~44 chunks) and
+should be re-evaluated if the knowledge base grows substantially --
+several techniques (RAPTOR and Contextual Retrieval especially) were
+explicitly predicted and confirmed to underperform *because* of the
+corpus's small size, not because the mechanism itself is unsound.

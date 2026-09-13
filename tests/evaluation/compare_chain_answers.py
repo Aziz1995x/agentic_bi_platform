@@ -148,12 +148,69 @@ def compare_answers_basic_vs_contextual_doc(question: str) -> None:
         print()
 
 
+def compare_answers_basic_vs_raptor_doc(question: str) -> None:
+    vectorstore = load_vectorstore()
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    from agentic_bi.rag.raptor import build_raptor_tree
+    from langchain_community.vectorstores import FAISS
+    from agentic_bi.rag.embeddings import get_embeddings
+    from agentic_bi.rag.chunking import split_documents
+
+    raw_docs = load_knowledge_base_documents()
+    chunks = split_documents(documents=raw_docs)
+    raptor_nodes = build_raptor_tree(chunks, max_levels=2)
+    print(f"RAPTOR tree: {len(chunks)} leaves + {len(raptor_nodes) - len(chunks)} summary nodes "
+          f"= {len(raptor_nodes)} total")
+    raptor_vectorstore = FAISS.from_documents(raptor_nodes, get_embeddings())
+    raptor_retriever = raptor_vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    print(f"\nQUESTION: {question}\n")
+
+    for label, retriever in [("BASIC", basic_retriever), (f"RAPTOR Retrieval (k=4)", raptor_retriever)]:
+        chain = build_chain_with_retriever(retriever)
+        result: RAGAnswer = chain.invoke(question)
+        print(f"--- {label} ---")
+        print(f"answer: {result.answer}")
+        print(f"sufficient_context: {result.sufficient_context}")
+        print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
+        print()
+
+def compare_answers_basic_vs_metadata_enriched_doc(question: str) -> None:
+    vectorstore = load_vectorstore()
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    from agentic_bi.rag.metadata_enrichment import enrich_chunk_metadata
+    from langchain_community.vectorstores import FAISS
+    from agentic_bi.rag.embeddings import get_embeddings
+    from agentic_bi.rag.chunking import split_documents
+
+    raw_docs = load_knowledge_base_documents()
+    chunks = split_documents(documents=raw_docs)
+    metadata_enriched_chunks = enrich_chunk_metadata(chunks=chunks, raw_documents=raw_docs)
+    enriched_vectorstore = FAISS.from_documents(metadata_enriched_chunks, get_embeddings())
+    enriched_retriever = enriched_vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    print(f"\nQUESTION: {question}\n")
+
+    for label, retriever in [("BASIC", basic_retriever), (f"ENRICHED Retrieval (k=4)", enriched_retriever)]:
+        chain = build_chain_with_retriever(retriever)
+        result: RAGAnswer = chain.invoke(question)
+        print(f"--- {label} ---")
+        print(f"answer: {result.answer}")
+        print(f"sufficient_context: {result.sufficient_context}")
+        print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
+        print()
+        
+
 if __name__ == "__main__":
-    flagged_case_ids = {4,5,6,7,8,9}
+    flagged_case_ids = {4,}
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
     for case in flagged_cases:
         # compare_answers(case.question, lambda_mult=0.8)
         # compare_answers_basic_vs_rerank(case.question)
         # compare_answers_basic_vs_parent_doc(case.question)
         # compare_answers_basic_vs_hybrid_doc(question=case.question)
-        compare_answers_basic_vs_contextual_doc(question=case.question)
+        # compare_answers_basic_vs_contextual_doc(question=case.question)
+        # compare_answers_basic_vs_raptor_doc(question=case.question)
+        compare_answers_basic_vs_metadata_enriched_doc(question=case.question)
