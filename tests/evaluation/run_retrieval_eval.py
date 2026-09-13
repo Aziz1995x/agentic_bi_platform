@@ -115,6 +115,8 @@ def inspect_case_content(retriever: BaseRetriever, case: RetrievalTestCase, max_
 if __name__ == "__main__":
     from agentic_bi.rag.vectorstore import get_mmr_retriever, get_multi_query_retriever
     from agentic_bi.rag.reranker import get_reranking_retriever
+    from agentic_bi.rag.parent_retriever import build_parent_document_retriever
+    from agentic_bi.rag.loaders import load_knowledge_base_documents
 
     vectorstore = load_vectorstore()
 
@@ -123,15 +125,19 @@ if __name__ == "__main__":
     mq_retriever = get_multi_query_retriever(vectorstore=vectorstore, k=4)
     rerank_retriever = get_reranking_retriever(vectorstore=vectorstore, fetch_k=10, top_n=2)
 
+    raw_docs = load_knowledge_base_documents()
+    parent_retriever, _ = build_parent_document_retriever(raw_documents=raw_docs, k=2)
+
     run_retrieval_eval(basic_retriever, label="Basic similarity search (k=2)")
     # run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
     # run_retrieval_eval(mq_retriever, label="MQR (k=4)")
-    run_retrieval_eval(rerank_retriever, label="Reranked (fetch_k=10, top_n=2)")
+    # run_retrieval_eval(rerank_retriever, label="Reranked (fetch_k=10, top_n=2)")
+    run_retrieval_eval(parent_retriever, label="ParentDocumentRetriever (child=250, parent=1200, k=2)")
 
     # Content-level drill-down on the flagged cases only -- cheap to run,
     # and the only way to tell whether source-level "PASS" is hiding a
     # real quality difference between the two retrievers.
-    flagged_case_ids = {8,}
+    flagged_case_ids = {4}
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
 
     for case in flagged_cases:
@@ -141,5 +147,7 @@ if __name__ == "__main__":
         # inspect_case_content(mmr_retriever, case)
         # print("########## MQR ##########")
         # inspect_case_content(mq_retriever, case)
-        print("########## RERANKING - ContextualCompressionRetriever ##########")
-        inspect_case_content(rerank_retriever, case)
+        # print("########## RERANKING - ContextualCompressionRetriever ##########")
+        # inspect_case_content(rerank_retriever, case)
+        print("########## PARENT DOCUMENT RETRIEVER ##########")
+        inspect_case_content(parent_retriever, case)

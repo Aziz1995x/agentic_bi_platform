@@ -10,6 +10,8 @@ from agentic_bi.rag.chain import format_docs
 from agentic_bi.rag.schemas import RAGAnswer
 from agentic_bi.rag.vectorstore import get_mmr_retriever, load_vectorstore, get_multi_query_retriever
 from agentic_bi.rag.reranker import get_reranking_retriever
+from agentic_bi.rag.loaders import load_knowledge_base_documents
+from agentic_bi.rag.parent_retriever import build_parent_document_retriever
 from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
 from tests.evaluation.retrieval_cases import RETRIEVAL_TEST_CASES, RetrievalTestCase
 
@@ -75,9 +77,28 @@ def compare_answers_basic_vs_rerank(question: str) -> None:
         print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
         print()
 
+def compare_answers_basic_vs_parent_doc(question: str) -> None:
+    vectorstore = load_vectorstore()
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    raw_docs = load_knowledge_base_documents()
+    parent_retriever, _ = build_parent_document_retriever(raw_documents=raw_docs, k=4)
+
+    print(f"\nQUESTION: {question}\n")
+
+    for label, retriever in [("BASIC", basic_retriever), (f"PARENT_RETRIEVER", parent_retriever)]:
+        chain = build_chain_with_retriever(retriever)
+        result: RAGAnswer = chain.invoke(question)
+        print(f"--- {label} ---")
+        print(f"answer: {result.answer}")
+        print(f"sufficient_context: {result.sufficient_context}")
+        print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
+        print()
+
 if __name__ == "__main__":
-    flagged_case_ids = {8, }
+    flagged_case_ids = {4,}
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
     for case in flagged_cases:
         # compare_answers(case.question, lambda_mult=0.8)
-        compare_answers_basic_vs_rerank(case.question)
+        # compare_answers_basic_vs_rerank(case.question)
+        compare_answers_basic_vs_parent_doc(case.question)

@@ -160,3 +160,62 @@ where their target failure modes are actually present -- e.g. a larger,
 noisier corpus with genuine near-duplicate content, inconsistent
 third-party vocabulary, or high-precision-required ranking within a large
 candidate pool. Default retriever remains plain similarity search at k=4.
+
+## Observations on ParentDocumentRetriever for policy documents
+
+ParentDocumentRetriever evaluated against the fixed retrieval eval set at
+two matched k values (k=4 and k=2), under the pinned config, using
+child_chunk_size=250 / parent_chunk_size=1200. **Not adopted.**
+
+**At k=4:** recall matched Basic (9/9), with one encouraging-looking but
+ultimately misleading signal -- case #4's `kpi_definitions.md` moved from
+rank 4 (barely surviving) under Basic to rank 3 under Parent, at the same
+nominal k. This looked like early evidence that larger returned chunks
+free up room in the k-budget for a second required source.
+
+**At k=2:** that signal did not hold up, and the technique measurably
+underperformed Basic -- **7/9 vs. Basic's 8/9 at the same k.**
+
+- **Case #4 failed identically to Basic.** The two nearest *child* chunks
+  (250 chars) were both from `customer_segmentation.md`; mapping them up
+  to their parent sections still produced only `customer_segmentation.md`
+  content. `kpi_definitions.md` never appeared. This is the key mechanical
+  finding: **parent-expansion happens only after the nearest children are
+  already selected by embedding similarity.** If `customer_segmentation.md`
+  is simply a stronger semantic match for this specific query than
+  `kpi_definitions.md` -- which it evidently is -- no amount of returning
+  larger parent chunks changes *which sources* get selected in the first
+  place. Chunk size affects what's returned once a chunk is chosen; it
+  does not affect the choice itself.
+
+- **Case #8 newly failed, and did not fail under Basic at k=2.** Parent's
+  two nearest children collapsed, after deduplication to their shared
+  parent, into a **single** returned document (`kpi_definitions.md` only)
+  -- `data_dictionary.md` was dropped entirely. This exposes the actual
+  root cause of the original (wrong) hypothesis: **ParentDocumentRetriever's
+  `k` parameter controls how many child chunks are fetched from the
+  vectorstore, not how many distinct documents are ultimately returned.**
+  When multiple selected children map to the same parent, deduplication
+  silently reduces the effective number of distinct sources below the
+  configured k. For a corpus whose one confirmed bottleneck is "does the
+  window have enough slots for every source a multi-document question
+  needs" (see MMR/MQR/Reranking verdicts above), this is the worst
+  possible failure mode -- it shrinks effective k exactly when the corpus
+  most needs it preserved.
+
+**Verdict:** ParentDocumentRetriever is not merely neutral on this corpus
+(as MMR, MultiQueryRetriever, and Reranking were) -- it is measurably
+**worse** at reduced k, because its dedup behavior compounds rather than
+relieves the source-slot capacity constraint that is this corpus's actual
+weakness. `build_parent_document_retriever()` kept in the codebase for
+reference and for a future corpus where parent/child splitting's intended
+benefit (recovering full context around a precisely-matched small
+fragment) is genuinely needed -- but not adopted as default, and not
+recommended as a way to safely reduce k for this corpus.
+
+**Fifth technique, fifth confirmation of the unifying finding:** no tested
+retrieval strategy (MMR, MultiQueryRetriever, Reranking, ParentDocumentRetriever)
+can substitute for simply keeping k>=4 on this corpus. The bottleneck is
+structural -- how many distinct sources fit in the retrieval window for a
+multi-document question -- not a relevance, redundancy, or lexical-matching
+problem that ranking or rewriting techniques are designed to solve.
