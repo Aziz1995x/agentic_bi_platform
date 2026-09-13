@@ -153,6 +153,7 @@ if __name__ == "__main__":
     from agentic_bi.rag.bm25_retriever import build_hybrid_retriever, build_bm25_retriever
     from agentic_bi.rag.chunking import split_documents
     from agentic_bi.rag.contextual_chunking import contextualize_chunks
+    from agentic_bi.rag.raptor import build_raptor_tree
 
     vectorstore = load_vectorstore()
 
@@ -173,10 +174,16 @@ if __name__ == "__main__":
 
     from langchain_community.vectorstores import FAISS
     from agentic_bi.rag.embeddings import get_embeddings
-    print(f"Contextualizing {len(chunks)} chunks (one LLM call each)...")
-    contextual_chunks = contextualize_chunks(raw_docs, chunks)
-    contextual_vectorstore = FAISS.from_documents(contextual_chunks, get_embeddings())
-    contextual_retriever = contextual_vectorstore.as_retriever(search_kwargs={"k": 4})
+    # print(f"Contextualizing {len(chunks)} chunks (one LLM call each)...")
+    # contextual_chunks = contextualize_chunks(raw_docs, chunks)
+    # contextual_vectorstore = FAISS.from_documents(contextual_chunks, get_embeddings())
+    # contextual_retriever = contextual_vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    raptor_nodes = build_raptor_tree(chunks, max_levels=2)
+    print(f"RAPTOR tree: {len(chunks)} leaves + {len(raptor_nodes) - len(chunks)} summary nodes "
+          f"= {len(raptor_nodes)} total")
+    raptor_vectorstore = FAISS.from_documents(raptor_nodes, get_embeddings())
+    raptor_retriever = raptor_vectorstore.as_retriever(search_kwargs={"k": 4})
 
     run_retrieval_eval(basic_retriever, label="Basic similarity search (k=4)")
     # run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
@@ -185,7 +192,8 @@ if __name__ == "__main__":
     # run_retrieval_eval(parent_retriever, label="ParentDocumentRetriever (child=250, parent=1200, k=4)")
     # run_retrieval_eval(bm25_retriever, label="bm25_retriever (k=2)")
     # run_retrieval_eval(hybrid_retriever, label="hybrid_retriever (k=2, dense_weight=0.5)")
-    run_retrieval_eval(contextual_retriever, label="Contextual Retrieval (k=4)")
+    # run_retrieval_eval(contextual_retriever, label="Contextual Retrieval (k=4)")
+    run_retrieval_eval(raptor_retriever, label="RAPTOR (k=4)")
 
     # Content-level drill-down on the flagged cases only -- cheap to run,
     # and the only way to tell whether source-level "PASS" is hiding a
@@ -193,9 +201,9 @@ if __name__ == "__main__":
     flagged_case_ids = {4, 6, 7, 8, 9}
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
 
-    for case in flagged_cases:
-        print("\n########## BASIC ##########")
-        inspect_case_content(basic_retriever, case)
+    # for case in flagged_cases:
+    #     print("\n########## BASIC ##########")
+    #     inspect_case_content(basic_retriever, case)
         # print("########## MMR ##########")
         # inspect_case_content(mmr_retriever, case)
         # print("########## MQR ##########")
@@ -208,8 +216,8 @@ if __name__ == "__main__":
         # inspect_case_content(bm25_retriever, case)
         # print("########## HYBRID (DENSE+BM25) DOCUMENT RETRIEVER ##########")
         # inspect_case_content(hybrid_retriever, case)
-        print("########## Contextual Query DOCUMENT RETRIEVER ##########")
-        inspect_case_content(contextual_retriever, case)
+        # print("########## Contextual Query DOCUMENT RETRIEVER ##########")
+        # inspect_case_content(contextual_retriever, case)
 
 
     # Colbert Retriever: Not Working because of env version issues!

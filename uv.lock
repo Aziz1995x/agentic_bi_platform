@@ -41,6 +41,7 @@ dependencies = [
     { name = "psycopg2" },
     { name = "pydantic-settings" },
     { name = "rank-bm25" },
+    { name = "scikit-learn" },
     { name = "sentence-transformers" },
     { name = "unstructured" },
 ]
@@ -73,6 +74,7 @@ requires-dist = [
     { name = "psycopg2", specifier = ">=2.9.12" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
+    { name = "scikit-learn", specifier = ">=1.9.0" },
     { name = "sentence-transformers", specifier = ">=6.0.1" },
     { name = "unstructured", specifier = ">=0.27.5" },
 ]

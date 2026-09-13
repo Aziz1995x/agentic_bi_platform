@@ -385,3 +385,41 @@ holding -- i.e., if a future document's key fact exists in exactly one
 chunk with no redundant restatement elsewhere, contextualization's
 ranking improvement would likely matter at the chain level in a way it
 didn't here.
+
+## Observations on RAPTOR for policy documents
+
+RAPTOR (recursive clustering + LLM summarization into a multi-level
+retrieval tree) evaluated against the fixed eval set at k=4. **Not
+adopted -- corpus too small to produce a meaningful hierarchy, confirming
+the prediction made before testing.**
+
+Clustering collapsed after a single level: 44 leaf chunks -> 2 cluster
+summaries -> stopped (fewer than 4 nodes remained to cluster further).
+This is not a hierarchy in any meaningful sense -- RAPTOR's actual value
+proposition (multiple levels of increasingly abstract summaries, letting
+a broad thematic question match a high-level node while a specific
+question matches a leaf) never had the chance to operate, since this
+corpus's 5 documents don't contain enough underlying volume or thematic
+diversity to support more than one trivial round of clustering.
+
+The resulting summary nodes were actively counterproductive rather than
+neutral. With only 2 coarse clusters covering 5 distinct documents, each
+cluster's LLM summary necessarily blended multiple unrelated topics
+(e.g. one summary node's source metadata spanned
+`customer_segmentation.md, kpi_definitions.md, pricing_and_freight_policy.md,
+refund_and_returns_policy.md` -- four of five documents in one node).
+This caused a real regression on case #4: the mega-summary node occupied
+a k-slot that `kpi_definitions.md`'s specific relevant chunk would
+otherwise have filled under Basic, dropping recall to 8/9. The summary
+was too broad to add retrievable value and too generic to avoid
+competing with a more specific leaf chunk for space.
+
+**Verdict: RAPTOR requires a fundamentally larger and more thematically
+diverse corpus to be worth its build cost** (clustering + one LLM
+summarization call per cluster, repeated per level) **and its added
+retrieval-time risk** (overly broad summary nodes crowding out specific
+chunks in an already capacity-constrained retrieval window). Not adopted.
+Revisit only if the knowledge base grows to a scale where multiple
+genuine thematic groupings exist within a single topic area -- e.g. many
+historical quarterly business reports, where a "revenue trends across
+2024" summary node would capture something no single report chunk could.
