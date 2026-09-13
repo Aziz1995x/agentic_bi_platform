@@ -117,27 +117,38 @@ if __name__ == "__main__":
     from agentic_bi.rag.reranker import get_reranking_retriever
     from agentic_bi.rag.parent_retriever import build_parent_document_retriever
     from agentic_bi.rag.loaders import load_knowledge_base_documents
+    from agentic_bi.rag.bm25_retriever import build_hybrid_retriever, build_bm25_retriever
+    from agentic_bi.rag.chunking import split_documents
 
     vectorstore = load_vectorstore()
 
     basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
-    mmr_retriever = get_mmr_retriever(vectorstore, k=4, fetch_k=10, lambda_mult=0.8)
-    mq_retriever = get_multi_query_retriever(vectorstore=vectorstore, k=4)
-    rerank_retriever = get_reranking_retriever(vectorstore=vectorstore, fetch_k=10, top_n=2)
+    # mmr_retriever = get_mmr_retriever(vectorstore, k=4, fetch_k=10, lambda_mult=0.8)
+    # mq_retriever = get_multi_query_retriever(vectorstore=vectorstore, k=4)
+    # rerank_retriever = get_reranking_retriever(vectorstore=vectorstore, fetch_k=10, top_n=4)
 
     raw_docs = load_knowledge_base_documents()
-    parent_retriever, _ = build_parent_document_retriever(raw_documents=raw_docs, k=2)
+    # parent_retriever, _ = build_parent_document_retriever(raw_documents=raw_docs, k=4)
+
+    chunks = split_documents(documents=raw_docs)
+    bm25_retriever = build_bm25_retriever(chunks=chunks, k=2)
+    hybrid_retriever = build_hybrid_retriever(vectorstore=vectorstore,
+                                              chunks=chunks,
+                                              k=2,
+                                              dense_weight=0.5)
 
     run_retrieval_eval(basic_retriever, label="Basic similarity search (k=2)")
     # run_retrieval_eval(mmr_retriever, label="MMR (k=4, fetch_k=10, lambda=0.8)")
     # run_retrieval_eval(mq_retriever, label="MQR (k=4)")
-    # run_retrieval_eval(rerank_retriever, label="Reranked (fetch_k=10, top_n=2)")
-    run_retrieval_eval(parent_retriever, label="ParentDocumentRetriever (child=250, parent=1200, k=2)")
+    # run_retrieval_eval(rerank_retriever, label="Reranked (fetch_k=10, top_n=4)")
+    # run_retrieval_eval(parent_retriever, label="ParentDocumentRetriever (child=250, parent=1200, k=4)")
+    run_retrieval_eval(bm25_retriever, label="bm25_retriever (k=2)")
+    run_retrieval_eval(hybrid_retriever, label="hybrid_retriever (k=2, dense_weight=0.5)")
 
     # Content-level drill-down on the flagged cases only -- cheap to run,
     # and the only way to tell whether source-level "PASS" is hiding a
     # real quality difference between the two retrievers.
-    flagged_case_ids = {4}
+    flagged_case_ids = {4, 6, 7, 8, 9}
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
 
     for case in flagged_cases:
@@ -149,5 +160,9 @@ if __name__ == "__main__":
         # inspect_case_content(mq_retriever, case)
         # print("########## RERANKING - ContextualCompressionRetriever ##########")
         # inspect_case_content(rerank_retriever, case)
-        print("########## PARENT DOCUMENT RETRIEVER ##########")
-        inspect_case_content(parent_retriever, case)
+        # print("########## PARENT DOCUMENT RETRIEVER ##########")
+        # inspect_case_content(parent_retriever, case)
+        print("########## BM25 DOCUMENT RETRIEVER ##########")
+        inspect_case_content(bm25_retriever, case)
+        print("########## HYBRID (DENSE+BM25) DOCUMENT RETRIEVER ##########")
+        inspect_case_content(hybrid_retriever, case)

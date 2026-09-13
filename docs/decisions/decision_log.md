@@ -219,3 +219,66 @@ can substitute for simply keeping k>=4 on this corpus. The bottleneck is
 structural -- how many distinct sources fit in the retrieval window for a
 multi-document question -- not a relevance, redundancy, or lexical-matching
 problem that ranking or rewriting techniques are designed to solve.
+
+## Observations on BM25 and Hybrid (Dense + BM25) Retrieval for policy documents
+
+BM25-only and Hybrid (dense + BM25 via EnsembleRetriever, RRF fusion,
+dense_weight=0.5) evaluated against the fixed eval set at matched k=4 and
+k=2, under the pinned config.
+
+**At k=4:** all three retrievers (Basic, BM25-only, Hybrid) scored 9/9.
+No differentiating signal at this k -- consistent with every prior
+technique in this phase, since k=4 already has enough slack for this
+corpus's multi-source questions.
+
+**At k=2, BM25-only performed the worst of any technique tested this
+phase: 5/9**, failing cases #2, #4, #5, and #8 -- all cases requiring
+either an exact-but-differently-worded fact (case #2: "7 calendar days")
+or a second required source getting crowded out. This is a useful,
+somewhat counterintuitive finding on its own: BM25 was expected to excel
+at exact term/number matching, but at k=2 it actually failed the
+"how long to request a return" case, retrieving two `kpi_definitions.md`
+chunks instead -- its term-frequency scoring did not weight "7 calendar
+days" highly enough relative to more frequent terms elsewhere in the
+corpus. BM25 alone is not a reliable retriever for this corpus at low k.
+
+**At k=2, Hybrid scored 9/9 -- the first and only technique in this phase
+to beat Basic's k=2 recall (8/9).** Mechanism, confirmed via rank
+inspection: dense search and BM25 rank case #4's two candidate documents
+in *opposite* order (dense: `customer_segmentation.md` rank 1,
+`kpi_definitions.md` rank 4; BM25: `kpi_definitions.md` rank 1,
+`customer_segmentation.md` rank 3). Reciprocal rank fusion, combining two
+rankings that disagree, let `kpi_definitions.md` survive into the fused
+top-2 by being ranked well by *either* method, displacing a second,
+redundant `customer_segmentation.md` chunk that dense-only search would
+have kept. This is hybrid retrieval's real mechanism working as intended:
+it doesn't need BM25 to be individually strong (it isn't -- 5/9 alone) --
+it needs BM25 and dense search to be *wrong in different, uncorrelated
+ways*, so fusion cancels out dense search's specific blind spot (over-
+concentrating on one dominant document).
+
+**Chain-level verification, however, reveals this retrieval-level win did
+not translate into a real answer-quality difference for this specific
+case.** Running case #4's question through both retrievers at true,
+matched k=2: Basic's single surviving `customer_segmentation.md` chunk
+("Relationship to Active Customer Status") already states enough to
+answer the question correctly on its own -- both Basic and Hybrid produced
+essentially identical, correct answers, with `sufficient_context=True`
+under both. The retrieval-level gap (missing `kpi_definitions.md`) was
+real but did not cost anything at the chain level for this particular
+question, because the one source that survived happened to be
+self-sufficient.
+
+**Verdict: Hybrid retrieval is the first technique in Phase 5 to show a
+genuine, mechanistically-explained retrieval-level improvement over Basic
+at reduced k -- but the chain-level check shows this specific improvement
+was a safety margin, not a demonstrated fix for a broken answer.** The
+distinction matters: it did not need to be tested purely on faith. This
+is arguably still worth adopting at reduced k, precisely because it costs
+little (no extra LLM call, cheap to compute) and provides a real
+retrieval-level safety margin against a future question where the
+surviving chunk is *not* self-sufficient -- unlike this case, where we
+got lucky that redundant information across sources meant one working
+chunk was enough. `build_hybrid_retriever()` is recommended if `k` is
+ever reduced from the default 4 for cost/latency reasons; at k=4, it adds
+no measurable benefit and is not necessary as the default.

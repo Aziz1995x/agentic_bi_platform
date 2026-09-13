@@ -95,10 +95,36 @@ def compare_answers_basic_vs_parent_doc(question: str) -> None:
         print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
         print()
 
+def compare_answers_basic_vs_hybrid_doc(question: str) -> None:
+    vectorstore = load_vectorstore()
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+
+    from agentic_bi.rag.chunking import split_documents
+    from agentic_bi.rag.bm25_retriever import build_hybrid_retriever
+
+    raw_docs = load_knowledge_base_documents()
+    chunks = split_documents(documents=raw_docs)
+    hybrid_retriever = build_hybrid_retriever(vectorstore=vectorstore,
+                                              chunks=chunks,
+                                              k=2,
+                                              dense_weight=0.5)
+
+    print(f"\nQUESTION: {question}\n")
+
+    for label, retriever in [("BASIC", basic_retriever), (f"HYBRID_RETRIEVER (k=2)", hybrid_retriever)]:
+        chain = build_chain_with_retriever(retriever)
+        result: RAGAnswer = chain.invoke(question)
+        print(f"--- {label} ---")
+        print(f"answer: {result.answer}")
+        print(f"sufficient_context: {result.sufficient_context}")
+        print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
+        print()
+
 if __name__ == "__main__":
-    flagged_case_ids = {4,}
+    flagged_case_ids = {4,5,6,7,8,9}
     flagged_cases = [c for c in RETRIEVAL_TEST_CASES if c.id in flagged_case_ids]
     for case in flagged_cases:
         # compare_answers(case.question, lambda_mult=0.8)
         # compare_answers_basic_vs_rerank(case.question)
-        compare_answers_basic_vs_parent_doc(case.question)
+        # compare_answers_basic_vs_parent_doc(case.question)
+        compare_answers_basic_vs_hybrid_doc(question=case.question)
