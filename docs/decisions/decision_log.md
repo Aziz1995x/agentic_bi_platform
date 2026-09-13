@@ -282,3 +282,43 @@ got lucky that redundant information across sources meant one working
 chunk was enough. `build_hybrid_retriever()` is recommended if `k` is
 ever reduced from the default 4 for cost/latency reasons; at k=4, it adds
 no measurable benefit and is not necessary as the default.
+
+## ColBERT (via RAGatouille) — not evaluated, dependency conflicts
+
+Attempted to integrate ColBERT (late-interaction, token-level retrieval)
+via the `ragatouille` library, intending a head-to-head comparison against
+BM25 on the same exact-match weakness (both target precise term/number
+matching, via very different mechanisms -- classical term frequency vs.
+neural late-interaction/MaxSim).
+
+**Not completed -- blocked by two independent, unrelated dependency
+conflicts before any retrieval quality could be measured:**
+
+1. Installing `ragatouille` upgraded `pyarrow` past version 21.0.0, which
+   removed the `PyExtensionType` API that the `datasets` library (a
+   transitive dependency of `sentence_transformers`, already installed
+   for local embeddings support since Phase 4) still depends on. This
+   broke an unrelated, already-working module (`reranker.py`) as
+   collateral damage. Fixed by pinning `pyarrow<21.0`.
+2. Separately, `ragatouille`'s own internal code imports from
+   `langchain.retrievers.document_compressors.base`, a module path that
+   no longer exists in the currently installed LangChain version (moved
+   during a package restructuring to `langchain_core`/`langchain_classic`).
+   This is a genuine compatibility gap between `ragatouille` and current
+   LangChain, not fixable by a dependency version bump without risking
+   breaking every other already-verified retriever in this project.
+
+**Decision: skip ColBERT for this project.** Two independent, unrelated
+import failures before any retrieval code even ran is itself informative:
+this technique carries meaningfully higher integration risk and
+maintenance burden than every other technique tested in this phase, none
+of which required more than adding a single well-maintained package.
+Combined with the corpus-size argument established across four other
+techniques (MMR, MultiQuery, Reranking, ParentDocumentRetriever) --
+this corpus's real constraint is source-slot capacity at low k, not
+lexical/relevance precision, which is the specific problem ColBERT
+solves -- the expected benefit was already predicted to be marginal even
+before the dependency issues surfaced. Not worth the integration cost for
+this corpus. Revisit only if the knowledge base grows into a domain where
+BM25 has already been shown insufficient AND precise term-level matching
+is a demonstrated, not merely theoretical, requirement.
