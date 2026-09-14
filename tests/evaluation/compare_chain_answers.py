@@ -201,7 +201,26 @@ def compare_answers_basic_vs_metadata_enriched_doc(question: str) -> None:
         print(f"sufficient_context: {result.sufficient_context}")
         print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
         print()
-        
+
+def compare_answers_basic_vs_composed_ret(question: str) -> None:
+    vectorstore = load_vectorstore()
+    basic_retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+    from agentic_bi.rag.chunking import split_documents
+    from agentic_bi.rag.composed_retriever import build_composed_retriever
+    raw_docs = load_knowledge_base_documents()
+    chunks = split_documents(documents=raw_docs)
+    composed_retriever = build_composed_retriever(vectorstore, chunks, fetch_k=10, top_n=2, dense_weight=0.5)
+
+    print(f"\nQUESTION: {question}\n")
+
+    for label, retriever in [("BASIC", basic_retriever), (f"Composed Retrieval (k=2)", composed_retriever)]:
+        chain = build_chain_with_retriever(retriever)
+        result: RAGAnswer = chain.invoke(question)
+        print(f"--- {label} ---")
+        print(f"answer: {result.answer}")
+        print(f"sufficient_context: {result.sufficient_context}")
+        print(f"citations: {[(c.source, c.excerpt) for c in result.citations]}")
+        print()
 
 if __name__ == "__main__":
     flagged_case_ids = {4,}
@@ -213,4 +232,6 @@ if __name__ == "__main__":
         # compare_answers_basic_vs_hybrid_doc(question=case.question)
         # compare_answers_basic_vs_contextual_doc(question=case.question)
         # compare_answers_basic_vs_raptor_doc(question=case.question)
-        compare_answers_basic_vs_metadata_enriched_doc(question=case.question)
+        # compare_answers_basic_vs_metadata_enriched_doc(question=case.question)
+        compare_answers_basic_vs_composed_ret(question=case.question)
+

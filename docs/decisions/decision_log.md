@@ -548,3 +548,67 @@ should be re-evaluated if the knowledge base grows substantially --
 several techniques (RAPTOR and Contextual Retrieval especially) were
 explicitly predicted and confirmed to underperform *because* of the
 corpus's small size, not because the mechanism itself is unsound.
+
+## Composed Pipeline: Hybrid (Dense+BM25) -> Reranking
+
+Tested as the deliberate final step of Phase 5, following the user's
+correct observation that production RAG systems typically stack
+complementary techniques rather than relying on any single one --
+Anthropic's own Contextual Retrieval research combines contextual
+embeddings, BM25, and reranking for exactly this reason. Composed only
+Hybrid and Reranking, the two techniques that showed genuine or partial
+individual value; MMR, ParentDocumentRetriever, and RAPTOR were excluded
+from composition since they showed neutral-to-negative individual
+results with no reason to expect stacking would reverse that.
+
+**At k=4:** matched every individual technique's best result (9/9),
+including case #8's corrected ground truth. No regression, no
+additional gain over Hybrid or Reranking alone at this k.
+
+**At k=2, a genuine and important regression was found: composition
+gave back the exact win Hybrid earned alone.** Hybrid alone at k=2
+scored 9/9, correctly preserving `kpi_definitions.md` in case #4 via
+RRF fusion of two disagreeing rankers. The composed pipeline, reranking
+that same Hybrid candidate pool, dropped back to 8/9 -- case #4 failed
+again, with both final slots going to `customer_segmentation.md`.
+
+**Root cause, confirmed via inspection:** the cross-encoder reranker
+scores each candidate purely on independent relevance to the query text
+and has no redundancy or diversity penalty at all. Given Hybrid's wider
+candidate pool (which did contain `kpi_definitions.md`), the reranker
+judged `customer_segmentation.md`'s "Enterprise" chunk as more
+individually relevant to the query than `kpi_definitions.md`'s content --
+a locally defensible judgment that actively undoes the cross-document
+balance RRF fusion had specifically achieved. This is the mirror image
+of MMR's failure mode earlier in this phase: MMR over-corrects for
+diversity on a corpus that doesn't need it; Reranking under-corrects for
+diversity on the one case that does need it. **Stacking two techniques
+with opposite blind spots did not average out to something better --
+the later stage in the pipeline simply overwrote the earlier stage's
+fix**, since neither stage is aware of what the other was optimizing for.
+
+**Chain-level check, however, showed the regression was harmless for
+this specific question:** `customer_segmentation.md`'s surviving chunk
+independently states enough to answer correctly ("a customer... retains
+their Enterprise segment... even though currently non-active") without
+needing `kpi_definitions.md` at all. Both Basic and the Composed pipeline
+produced essentially identical, fully correct answers. This is the third
+time in this phase a retrieval-level regression turned out to be
+invisible at the answer layer (after Contextual Retrieval and one of
+Hybrid's own tests) -- a recurring, now well-established property of
+this specific corpus: redundant restatement of key facts across adjacent
+sections within a document means retrieval-level near-misses often do
+not translate into wrong answers, though this should not be relied upon
+as a general safety net for a corpus that hasn't been verified to have
+this redundancy property.
+
+**Final verdict:** composition is not automatically safe, even when
+composing two individually-reasonable techniques -- it requires the same
+empirical verification as any single technique, and this project's one
+test of it demonstrated a real, if chain-level-harmless, failure mode
+worth remembering: a downstream stage with no awareness of an upstream
+stage's diversity objective can silently undo it. For this corpus, at
+k=4 (the recommended default throughout this phase), composition is safe
+and matches every individual best result. At reduced k, Hybrid alone is
+the safer choice of the two -- composing it with Reranking removed value
+rather than adding it, for this specific corpus and this specific case.
