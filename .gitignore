@@ -7,6 +7,8 @@ data/vectorstore/faiss_index/*.faiss
 data/vectorstore/faiss_index/*.pkl
 *.csv
 
+documents/multimodal/
+
 # environment / secrets
 .env
 
