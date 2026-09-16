@@ -31,9 +31,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 
-OUT = Path("/documents/multimodal/pdfs")
-CHARTS = Path("/documents/multimodal/charts")
-TABLES_D = Path("/documents/multimodal/tables")
+OUT = Path("documents/multimodal/pdfs")
+CHARTS = Path("documents/multimodal/charts")
+TABLES_D = Path("documents/multimodal/tables")
 OUT.mkdir(parents=True, exist_ok=True)
 
 BRAND_BLUE = colors.HexColor("#1A56DB")
@@ -672,7 +672,7 @@ if __name__ == "__main__":
     pdf_02()
     pdf_03()
 
-    meta_path = Path("/home/claude/multimodal_corpus/metadata/pdfs_metadata.json")
+    meta_path = Path("documents/multimodal/metadata/pdfs_metadata.json")
     import json
     with open(meta_path, "w") as f:
         json.dump(metadata, f, indent=2)
