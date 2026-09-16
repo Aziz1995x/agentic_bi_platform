@@ -24,12 +24,17 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"    # "qwen/qwen3.6-27b"
     llm_temperature: float = 0.0
 
+    multimodal_llm_provider: Literal["openai", "ollama"] = "openai"
+    multimodal_llm_model: str = "gpt-5-nano"      # "gemma4:31b" 
+
     anthropic_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None
+    ollama_api_key: SecretStr | None = None
 
     ollama_base_url: str = "http://localhost:11434"
+    ollama_cloud_base_url: str = "https://ollama.com/v1"
 
     embedding_provider: Literal["anthropic", "openai", "groq", "local", "gemini"] = "openai"
     embedding_model: str = "text-embedding-3-small"
