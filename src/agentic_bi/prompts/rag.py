@@ -29,3 +29,16 @@ rag_answer_prompt = ChatPromptTemplate.from_messages(
         ("human", "Context:\n{context}\n\nQuestion: {question}"),
     ]
 )
+
+
+MULTI_QUERY_PROMPT_TEMPLATE = """You are helping retrieve information from a
+company's business policy documents. Generate {num_variants} different
+phrasings of the user's question that preserve its exact meaning but vary
+vocabulary and phrasing style. Include at least one variant that uses more
+formal/technical language and one that uses more casual phrasing.
+
+Do not change what is being asked -- only how it is asked.
+
+Original question: {question}
+
+Provide each variant on its own line, with no numbering or extra text."""

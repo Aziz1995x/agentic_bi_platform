@@ -32,7 +32,7 @@ def get_llm(temperature: float | None = None) -> BaseChatModel:
             temperature=temp,
             api_key=settings.anthropic_api_key,
         )
-    
+
     elif settings.llm_provider == "openai":
         from langchain_openai import ChatOpenAI
 
@@ -49,6 +49,14 @@ def get_llm(temperature: float | None = None) -> BaseChatModel:
             model=settings.llm_model,
             temperature=temp,
             api_key=settings.groq_api_key,
+        )
+
+    elif settings.llm_provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        return ChatGoogleGenerativeAI(
+            model=settings.llm_model,
+            api_key=settings.gemini_api_key,
         )
 
     elif settings.llm_provider == "local":
