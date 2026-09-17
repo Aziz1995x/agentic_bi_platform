@@ -5,9 +5,11 @@ data/raw/*.csv
 data/processed/
 data/vectorstore/faiss_index/*.faiss
 data/vectorstore/faiss_index/*.pkl
+data/vectorstore/faiss_multimodal/
 *.csv
 
 documents/multimodal/
+
 
 # environment / secrets
 .env
