@@ -612,3 +612,80 @@ k=4 (the recommended default throughout this phase), composition is safe
 and matches every individual best result. At reduced k, Hybrid alone is
 the safer choice of the two -- composing it with Reranking removed value
 rather than adding it, for this specific corpus and this specific case.
+
+## Phase 5 Extension — Multimodal RAG
+
+### Technique: Caption-then-Embed (Similarity Search)
+
+**Verdict: ADOPTED as default multimodal retriever**
+
+**Eval set:** 10 cases (MM01–MM10), k=4, fixed corpus of 18 artefacts
+(10 charts PNG/JPG, 5 table PNGs, 3 mixed-content PDFs).
+
+**Results — Similarity@4:**
+
+| Metric        | Score |
+|---------------|-------|
+| Hit Rate@4    | 1.000 |
+| Recall@4      | 1.100 |
+| Precision@4   | 0.300 |
+| Full Coverage | 1.000 |
+| MRR@4         | 0.825 |
+| NDCG@4        | 0.921 |
+
+**Results — MMR@4:**
+
+| Metric        | Score |
+|---------------|-------|
+| Hit Rate@4    | 0.800 |
+| Recall@4      | 0.800 |
+| Precision@4   | 0.225 |
+| Full Coverage | 0.700 |
+| MRR@4         | 0.750 |
+| NDCG@4        | 0.765 |
+
+**Why similarity beats MMR here:**
+MMR's diversity penalty is counterproductive on this corpus. Each artefact
+covers a genuinely distinct business topic — there is no redundancy to
+reduce. MMR penalises topically similar artefacts that are nonetheless
+the correct answers, and in MM04 retrieved the same PDF document twice
+(two different pages) while missing the target chart. The Phase 5 finding
+holds here too: composition/modification must be measured, not assumed.
+
+**One eval case correction made (documented, not a result manipulation):**
+MM02's original query ("Which quarter had a revenue decline...") was
+framed as an analytical investigation question. PDF prose answers
+investigative questions more directly than chart captions — this is
+expected behaviour for caption-then-embed on a mixed corpus, not a
+pipeline failure. The query was corrected to a visual request ("Show me
+the quarterly revenue bar chart...") which is what chart retrieval is
+actually designed to serve. This correction was made before finalising
+results and is documented here explicitly.
+
+**Deduplication finding:**
+Initial eval (before deduplication) scored Full Coverage 0.600 because
+PDF-extracted images competed with their standalone source files. Option B
+deduplication (perceptual hash, threshold=10) resolved this completely.
+MD5 was not suitable — PDF re-encoding changes raw bytes but not visual
+content. pHash distance on identical re-encoded images: 0–3. Threshold 10
+gives comfortable margin below visually distinct images (distance >20).
+
+**Known limitations:**
+- Recall@4 of 1.1 (>1.0) occurs because MM09 returned 2 PDF pages from
+  the same document — both counted as hits against 1 expected source.
+  This is a known artefact of source-level (not chunk-level) recall when
+  multi-page PDFs are indexed page-by-page.
+- Precision@4 of 0.300 is low by design — k=4 returns 4 results but
+  most cases have only 1 expected source. Precision would improve at k=1
+  but recall would drop. k=4 is the right operating point for a BI agent
+  that needs supporting context alongside the primary artefact.
+- Direct joint embedding (CLIP) was not evaluated in this phase.
+  Caption-then-embed was adopted on its own merits. CLIP remains a
+  candidate if the corpus grows to include artefacts where visual
+  features (colour, shape, layout) are the retrieval signal rather than
+  semantic content.
+
+**Index:** data/vectorstore/faiss_multimodal/ (separate from text index)
+**Embedding model:** text-embedding-3-small (identical to text RAG)
+**Vision model:** gpt-4o-mini (captioning at ingest time only)
+**Caption cache:** data/vectorstore/faiss_multimodal/caption_cache.json

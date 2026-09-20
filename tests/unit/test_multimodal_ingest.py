@@ -323,3 +323,138 @@ class TestCaptionCache:
 
         # mtime changed → different cache key → will re-caption
         assert key1 != key2
+
+
+# ── Deduplication tests ───────────────────────────────────────────────────────
+
+class TestPdfDeduplication:
+    """
+    Tests for Option B deduplication: PDF-embedded images that are
+    perceptually identical to standalone chart/table files are skipped.
+    Images with no standalone match are kept.
+    """
+
+    def _make_real_png(self, path: Path) -> None:
+        """
+        Write a real 8x8 coloured PNG that imagehash.phash() can process.
+        The 1x1 pixel used elsewhere is too small for stable phash output.
+        """
+        from PIL import Image
+        import numpy as np
+        arr = __import__("numpy").zeros((8, 8, 3), dtype=__import__("numpy").uint8)
+        arr[:4, :4] = [255, 0, 0]
+        arr[:4, 4:] = [0, 255, 0]
+        arr[4:, :4] = [0, 0, 255]
+        arr[4:, 4:] = [255, 255, 0]
+        Image.fromarray(arr, "RGB").save(path)
+
+    def _make_distinct_png(self, path: Path) -> None:
+        """Write a visually distinct image (solid black)."""
+        from PIL import Image
+        Image.new("RGB", (8, 8), color=(0, 0, 0)).save(path)
+
+    def _make_pdf_embedding(self, pdf_path: Path, img_path: Path) -> None:
+        """Create a minimal PDF that embeds img_path via reportlab."""
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph
+        from reportlab.platypus import Image as RLImage
+        from reportlab.lib.styles import getSampleStyleSheet
+        doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+        styles = getSampleStyleSheet()
+        doc.build([
+            Paragraph("Test report", styles["Title"]),
+            RLImage(str(img_path), width=100, height=100),
+        ])
+
+    def test_duplicate_embedded_image_skipped(self, tmp_path):
+        """
+        A PDF embedding a chart already in charts/ produces no pdf_image doc.
+        """
+        from agentic_bi.rag.multimodal.loaders import load_pdf_documents
+
+        charts_dir = tmp_path / "charts"
+        pdfs_dir   = tmp_path / "pdfs"
+        charts_dir.mkdir()
+        pdfs_dir.mkdir()
+
+        chart_path = charts_dir / "revenue_chart.png"
+        self._make_real_png(chart_path)
+
+        pdf_path = pdfs_dir / "report.pdf"
+        self._make_pdf_embedding(pdf_path, chart_path)
+
+        docs = load_pdf_documents(
+            pdfs_dir,
+            metadata_lookup={},
+            standalone_image_dirs=[charts_dir],
+        )
+
+        pdf_image_docs = [d for d in docs if d.metadata["source_type"] == "pdf_image"]
+        assert len(pdf_image_docs) == 0, (
+            f"Expected 0 pdf_image docs (duplicate should be skipped), "
+            f"got {len(pdf_image_docs)}"
+        )
+
+    def test_non_duplicate_embedded_image_kept(self, tmp_path):
+        """
+        A PDF embedding an image NOT in charts/ produces a pdf_image doc.
+        """
+        from agentic_bi.rag.multimodal.loaders import load_pdf_documents
+
+        charts_dir = tmp_path / "charts"
+        pdfs_dir   = tmp_path / "pdfs"
+        charts_dir.mkdir()
+        pdfs_dir.mkdir()
+
+        # Standalone chart
+        chart_path = charts_dir / "existing_chart.png"
+        self._make_real_png(chart_path)
+
+        # Visually distinct image — solid black, phash distance >> 10
+        new_img_path = tmp_path / "new_image.png"
+        self._make_distinct_png(new_img_path)
+
+        pdf_path = pdfs_dir / "report.pdf"
+        self._make_pdf_embedding(pdf_path, new_img_path)
+
+        docs = load_pdf_documents(
+            pdfs_dir,
+            metadata_lookup={},
+            standalone_image_dirs=[charts_dir],
+        )
+
+        pdf_image_docs = [d for d in docs if d.metadata["source_type"] == "pdf_image"]
+        assert len(pdf_image_docs) >= 1, (
+            "Expected at least 1 pdf_image doc (non-duplicate should be kept)"
+        )
+
+    def test_dedup_disabled_when_no_dirs_passed(self, tmp_path):
+        """
+        When standalone_image_dirs=None, all embedded images are indexed.
+        """
+        from agentic_bi.rag.multimodal.loaders import load_pdf_documents
+
+        charts_dir = tmp_path / "charts"
+        pdfs_dir   = tmp_path / "pdfs"
+        charts_dir.mkdir()
+        pdfs_dir.mkdir()
+
+        chart_path = charts_dir / "revenue_chart.png"
+        self._make_real_png(chart_path)
+
+        pdf_path = pdfs_dir / "report.pdf"
+        self._make_pdf_embedding(pdf_path, chart_path)
+
+        docs = load_pdf_documents(
+            pdfs_dir,
+            metadata_lookup={},
+            standalone_image_dirs=None,
+        )
+
+        pdf_image_docs = [d for d in docs if d.metadata["source_type"] == "pdf_image"]
+        assert len(pdf_image_docs) >= 1
+
+    def test_phash_threshold_constant_is_reasonable(self):
+        """PHASH_DUPLICATE_THRESHOLD must sit between 5 and 15."""
+        from agentic_bi.rag.multimodal.loaders import PHASH_DUPLICATE_THRESHOLD
+        assert 5 <= PHASH_DUPLICATE_THRESHOLD <= 15
