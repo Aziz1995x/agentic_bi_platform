@@ -5,7 +5,9 @@ data/raw/*.csv
 data/processed/
 data/vectorstore/faiss_index/*.faiss
 data/vectorstore/faiss_index/*.pkl
-data/vectorstore/faiss_multimodal/
+data/vectorstore/faiss_multimodal/*.faiss
+data/vectorstore/faiss_multimodal/*.pkl
+data/vectorstore/faiss_multimodal/*.json
 *.csv
 
 documents/multimodal/
