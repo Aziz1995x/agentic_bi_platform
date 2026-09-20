@@ -327,3 +327,149 @@ def load_multimodal_vectorstore() -> FAISS:
         embeddings,
         allow_dangerous_deserialization=True,
     )
+
+
+def update_multimodal_vectorstore(new_docs: list[Document]) -> FAISS:
+    """
+    Append already-processed Documents to the existing multimodal index.
+
+    Use this when documents have already been loaded, captioned, and
+    filtered — i.e. page_content is populated and needs_caption is False.
+    For raw file paths (PDFs, images), use update_multimodal_corpus()
+    which runs the full pipeline before appending.
+
+    Limitations — same as update_vectorstore() for the text index:
+    - No deletion. Old versions of updated documents remain in the index.
+    - No deduplication. Calling this twice with the same docs produces
+      duplicate vectors. Caller is responsible for new-only content.
+    """
+    if not new_docs:
+        raise ValueError("new_docs is empty — nothing to append.")
+
+    vs = load_multimodal_vectorstore()
+    vs.add_documents(new_docs)
+
+    index_dir = _multimodal_index_dir()
+    vs.save_local(str(index_dir))
+    logger.info("Multimodal index updated: %d documents appended", len(new_docs))
+    return vs
+
+
+def update_multimodal_corpus(
+    new_pdf_paths: list[Path] | None = None,
+    new_image_paths: list[Path] | None = None,
+    metadata_lookup: dict | None = None,
+    max_caption_workers: int = MAX_CAPTION_WORKERS,
+) -> FAISS:
+    """
+    Append new PDFs or standalone images to the existing multimodal index
+    using the full pipeline: load → deduplicate → caption → embed → append.
+
+    This is the correct entry point for adding new multimodal documents.
+    Unlike update_multimodal_vectorstore() which accepts already-processed
+    Documents, this accepts raw file paths and handles everything:
+
+      PDF path  →  load_pdf_documents()  →  extract text + embedded images
+                →  pHash dedup against standalone corpus
+                →  caption images via vision LLM
+                →  embed → append to FAISS
+
+    Parameters
+    ----------
+    new_pdf_paths:
+        List of Path objects pointing to new PDF files to add.
+        Each PDF is processed through the full multimodal pipeline.
+    new_image_paths:
+        List of Path objects pointing to new standalone image files
+        (PNG, JPG) to add. Each image is captioned and indexed.
+    metadata_lookup:
+        Dict mapping filename → metadata dict. Provides title, key_topics,
+        time_period, etc. for each new file. Optional — defaults are used
+        for any file not present in the lookup.
+    max_caption_workers:
+        Number of parallel vision API calls for captioning.
+    """
+    from agentic_bi.rag.multimodal.loaders import load_pdf_documents
+
+    settings   = get_settings()
+    index_dir  = _multimodal_index_dir()
+    cache      = _load_cache(index_dir)
+    meta       = metadata_lookup or {}
+
+    charts_dir = Path(settings.documents_dir) / "multimodal" / "charts"
+    tables_dir = Path(settings.documents_dir) / "multimodal" / "tables"
+
+    all_docs: list[Document] = []
+
+    # ── Process new standalone images ─────────────────────────────────
+    if new_image_paths:
+        for img_path in new_image_paths:
+            source_type = "chart" if img_path.parent.name == "charts" else "table"
+            file_meta   = meta.get(img_path.name, {})
+            all_docs.append(Document(
+                page_content=file_meta.get("key_insight", ""),
+                metadata={
+                    "source_type":   source_type,
+                    "file_path":     str(img_path.resolve()),
+                    "file_name":     img_path.name,
+                    "title":         file_meta.get("title", img_path.stem),
+                    "key_insight":   file_meta.get("key_insight", ""),
+                    "time_period":   file_meta.get("time_period", ""),
+                    "data_source":   file_meta.get("data_source", "synthetic"),
+                    "needs_caption": True,
+                },
+            ))
+            logger.debug("Queued image for captioning: %s", img_path.name)
+
+    # ── Process new PDFs through the full multimodal loader ───────────
+    if new_pdf_paths:
+        for pdf_path in new_pdf_paths:
+            if not pdf_path.exists():
+                logger.error("PDF not found, skipping: %s", pdf_path)
+                continue
+
+            file_meta = meta.get(pdf_path.name, {})
+            pdf_docs  = load_pdf_documents(
+                pdf_path.parent,
+                metadata_lookup={pdf_path.name: file_meta},
+                standalone_image_dirs=[charts_dir, tables_dir],
+            )
+            # load_pdf_documents scans the whole directory — filter to
+            # only documents originating from this specific PDF.
+            pdf_docs = [
+                d for d in pdf_docs
+                if d.metadata.get("file_name") == pdf_path.name
+                or d.metadata.get("parent_pdf") == pdf_path.name
+            ]
+            logger.info(
+                "Loaded %d documents from %s", len(pdf_docs), pdf_path.name
+            )
+            all_docs.extend(pdf_docs)
+
+    if not all_docs:
+        raise ValueError(
+            "No documents to process — check that file paths exist and "
+            "at least one of new_pdf_paths or new_image_paths is provided."
+        )
+
+    # ── Caption images, embed everything, append to index ─────────────
+    to_caption = [d for d in all_docs if _should_caption(d)]
+    text_ready = [d for d in all_docs if not _should_caption(d)]
+
+    captioned  = _run_captioning(to_caption, cache, index_dir, max_caption_workers)
+    _save_cache(index_dir, cache)
+
+    embeddable = [
+        d for d in text_ready + captioned
+        if d.page_content and len(d.page_content.strip()) >= 20
+    ]
+
+    if not embeddable:
+        logger.warning("All documents were empty after captioning — nothing appended.")
+        return load_multimodal_vectorstore()
+
+    logger.info(
+        "=== Multimodal corpus update: appending %d documents ===",
+        len(embeddable),
+    )
+    return update_multimodal_vectorstore(embeddable)

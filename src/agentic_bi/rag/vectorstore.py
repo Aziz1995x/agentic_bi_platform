@@ -52,6 +52,39 @@ def build_and_save_knowledge_base(chunks: list[Document]) -> FAISS:
     save_vectorstore(vectorstore)
     return vectorstore
 
+def update_vectorstore(new_chunks: list[Document]) -> FAISS:
+    """
+    Append new document chunks to the existing text FAISS index.
+
+    Use this when a small number of new or updated .md files arrive
+    and a full rebuild is wasteful. The existing index is loaded from
+    disk, new chunks are embedded and appended, and the updated index
+    is saved back to the same path.
+
+    Limitations — same as the multimodal equivalent:
+    - No deletion. If a document was revised, its old chunks remain in
+      the index alongside the new ones. For revised documents, run
+      build_and_save_knowledge_base() to do a clean rebuild.
+    - No deduplication. Calling this twice with the same chunks will
+      produce duplicate vectors. The caller is responsible for ensuring
+      new_chunks contains only genuinely new content.
+
+    When to use which function
+    ──────────────────────────
+    build_and_save_knowledge_base()  — full corpus rebuild (scheduled
+                                       batch, embedding model change,
+                                       document deletion/revision)
+    update_vectorstore()             — small batch of new-only documents
+                                       appended to a stable corpus
+    """
+    if not new_chunks:
+        raise ValueError("new_chunks is empty — nothing to append.")
+
+    vectorstore = load_vectorstore()
+    vectorstore.add_documents(new_chunks)
+    save_vectorstore(vectorstore)
+    return vectorstore
+
 
 def get_mmr_retriever(vectorstore: FAISS, k: int = 4, fetch_k: int = 10, lambda_mult: float = 0.5):
     """MMR retriever: balances relevance against diversity among selected chunks.
